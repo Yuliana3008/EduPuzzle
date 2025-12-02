@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Mail, Lock, BookOpen, Brain, Trophy, Users } from 'lucide-react';
-import { Link } from "react-router-dom";
+import { Eye, EyeOff, Mail, Lock, BookOpen, Brain, Trophy, Users, AlertTriangle } from 'lucide-react';
+import { Link, useNavigate } from "react-router-dom"; // Importamos useNavigate
 
 const Login = () => {
+  // Inicialización de estados para los inputs y mensajes
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState(''); // Estado para manejar errores de login
+  const [loading, setLoading] = useState(false); // Estado para el botón de carga
+  
+  const navigate = useNavigate(); // Hook para la navegación
 
   // Colores temáticos: Biología (verde), Geografía (azul), Ciencias Naturales (naranja/amarillo)
   const themeColors = {
@@ -14,7 +19,58 @@ const Login = () => {
     ciencias: ['#f59e0b', '#ea580c', '#fbbf24', '#fb923c']
   };
 
-  // Iconos SVG temáticos para el fondo
+  // Función para manejar el inicio de sesión
+  const handleLogin = async () => {
+    setError(''); // Limpiar errores anteriores
+    setLoading(true);
+
+    if (!email || !password) {
+      setError('Por favor, ingresa tu correo y contraseña.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // 1. Enviar datos al endpoint del servidor Express
+      // ¡Ajustado a tu puerto 3001!
+      const response = await fetch('http://localhost:3001/api/login', { 
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // 2. Éxito en el Login
+        console.log('Inicio de sesión exitoso:', data.message);
+        
+        // 3. Almacenar el token de autenticación (JWT) en localStorage
+        localStorage.setItem('userToken', data.token);
+        
+        // Opcional: guardar el nombre de usuario
+        localStorage.setItem('username', data.username);
+
+        // 4. Redirigir al usuario (ej. a la página de inicio o dashboard)
+        navigate('/dashboard'); 
+
+      } else {
+        // 5. Fallo en el Login (ej. credenciales incorrectas)
+        setError(data.message || 'Credenciales inválidas o error desconocido.');
+      }
+    } catch (err) {
+      // Error de red (servidor apagado, URL incorrecta, etc.)
+      console.error('Error de red o servidor:', err);
+      setError('Error al conectar con el servidor. Asegúrate de que el backend esté corriendo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  // Iconos SVG temáticos para el fondo (sin cambios, omitido por brevedad en este bloque)
   const ThematicIcon = ({ type, x, y, size, rotation }) => {
     const icons = {
       leaf: (
@@ -67,7 +123,7 @@ const Login = () => {
     );
   };
 
-  // SVG de pieza de rompecabezas temática (fondo)
+  // SVG de pieza de rompecabezas temática (fondo) (sin cambios, omitido por brevedad en este bloque)
   const PuzzlePiece = ({ color, size = 100, topTab = false, rightTab = false, bottomTab = false, leftTab = false, icon }) => {
     const tabSize = size * 0.25;
     
@@ -75,29 +131,29 @@ const Login = () => {
     
     if (topTab) {
       path += ` L ${size/2 - tabSize} 0 
-                Q ${size/2 - tabSize} ${-tabSize} ${size/2} ${-tabSize}
-                Q ${size/2 + tabSize} ${-tabSize} ${size/2 + tabSize} 0`;
+              Q ${size/2 - tabSize} ${-tabSize} ${size/2} ${-tabSize}
+              Q ${size/2 + tabSize} ${-tabSize} ${size/2 + tabSize} 0`;
     }
     path += ` L ${size} 0`;
     
     if (rightTab) {
       path += ` L ${size} ${size/2 - tabSize}
-                Q ${size + tabSize} ${size/2 - tabSize} ${size + tabSize} ${size/2}
-                Q ${size + tabSize} ${size/2 + tabSize} ${size} ${size/2 + tabSize}`;
+              Q ${size + tabSize} ${size/2 - tabSize} ${size + tabSize} ${size/2}
+              Q ${size + tabSize} ${size/2 + tabSize} ${size} ${size/2 + tabSize}`;
     }
     path += ` L ${size} ${size}`;
     
     if (bottomTab) {
       path += ` L ${size/2 + tabSize} ${size}
-                Q ${size/2 + tabSize} ${size + tabSize} ${size/2} ${size + tabSize}
-                Q ${size/2 - tabSize} ${size + tabSize} ${size/2 - tabSize} ${size}`;
+              Q ${size/2 + tabSize} ${size + tabSize} ${size/2} ${size + tabSize}
+              Q ${size/2 - tabSize} ${size + tabSize} ${size/2 - tabSize} ${size}`;
     }
     path += ` L ${leftTab ? tabSize : 0} ${size}`;
     
     if (leftTab) {
       path += ` L ${tabSize} ${size/2 + tabSize}
-                Q ${-tabSize} ${size/2 + tabSize} ${-tabSize} ${size/2}
-                Q ${-tabSize} ${size/2 - tabSize} ${tabSize} ${size/2 - tabSize}`;
+              Q ${-tabSize} ${size/2 + tabSize} ${-tabSize} ${size/2}
+              Q ${-tabSize} ${size/2 - tabSize} ${tabSize} ${size/2 - tabSize}`;
     }
     path += ` Z`;
 
@@ -335,6 +391,7 @@ const Login = () => {
           {/* COLUMNA DERECHA - Formulario de Login */}
           <div className="w-full max-w-md mx-auto lg:mx-0 lg:ml-auto">
             <div className="relative">
+              {/* Contenedor del formulario */}
               <div className="relative z-10 p-10 bg-white rounded-[40px] shadow-2xl transition-all duration-300 hover:shadow-emerald-500/50">
                 
                 {/* Barra superior temática */}
@@ -351,71 +408,98 @@ const Login = () => {
                 <p className="text-gray-600 mb-6 text-center font-semibold">Conecta con el conocimiento científico</p>
                 
                 {/* Login Form */}
-                <div className="space-y-5">
-                  {/* Email Input */}
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
-                      📧 Correo Electrónico
-                    </label>
-                    <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-emerald-600" size={20} />
-                      <input 
-                        type="email" 
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3 border-4 border-emerald-300 rounded-xl focus:ring-4 focus:ring-emerald-400 focus:border-emerald-500 transition outline-none hover:border-emerald-400 bg-white" 
-                        placeholder="tu@email.com" 
-                      />
+                <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
+                  <div className="space-y-5">
+                    
+                    {/* Mensaje de Error (si existe) */}
+                    {error && (
+                      <div className="flex items-center p-3 text-sm text-red-800 rounded-lg bg-red-100 border border-red-300 font-semibold">
+                        <AlertTriangle className="mr-2" size={20} />
+                        {error}
+                      </div>
+                    )}
+                    
+                    {/* Email Input */}
+                    <div>
+                      <label htmlFor="email" className="block text-sm font-bold text-gray-700 mb-2">
+                        📧 Correo Electrónico
+                      </label>
+                      <div className="relative">
+                        <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-emerald-600" size={20} />
+                        <input 
+                          id="email"
+                          type="email" 
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="w-full pl-12 pr-4 py-3 border-4 border-emerald-300 rounded-xl focus:ring-4 focus:ring-emerald-400 focus:border-emerald-500 transition outline-none hover:border-emerald-400 bg-white" 
+                          placeholder="tu@email.com" 
+                          required
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Password Input */}
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
-                      🔒 Contraseña
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-600" size={20} />
-                      <input 
-                        type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full pl-12 pr-12 py-3 border-4 border-blue-300 rounded-xl focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition outline-none hover:border-blue-400 bg-white" 
-                        placeholder="••••••••" 
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-blue-600 hover:text-blue-800 transition"
-                      >
-                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                      </button>
+                    {/* Password Input */}
+                    <div>
+                      <label htmlFor="password" className="block text-sm font-bold text-gray-700 mb-2">
+                        🔒 Contraseña
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-600" size={20} />
+                        <input 
+                          id="password"
+                          type={showPassword ? "text" : "password"}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="w-full pl-12 pr-12 py-3 border-4 border-blue-300 rounded-xl focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition outline-none hover:border-blue-400 bg-white" 
+                          placeholder="••••••••" 
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-4 top-1/2 transform -translate-y-1/2 text-blue-600 hover:text-blue-800 transition"
+                        >
+                          {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Remember me and Forgot password */}
-                  <div className="flex items-center justify-between text-sm">
-                    <label className="flex items-center gap-2 cursor-pointer group">
-                      <input type="checkbox" className="w-5 h-5 text-emerald-600 border-3 border-emerald-400 rounded focus:ring-emerald-500 cursor-pointer" />
-                      <span className="text-gray-700 font-semibold group-hover:text-emerald-600">Recordarme</span>
-                    </label>
-                    <a href="#" className="text-orange-600 hover:text-orange-700 font-bold hover:underline">
-                      ¿Olvidaste tu contraseña?
-                    </a>
-                  </div>
+                    {/* Remember me and Forgot password */}
+                    <div className="flex items-center justify-between text-sm">
+                      <label className="flex items-center gap-2 cursor-pointer group">
+                        <input type="checkbox" className="w-5 h-5 text-emerald-600 border-3 border-emerald-400 rounded focus:ring-emerald-500 cursor-pointer" />
+                        <span className="text-gray-700 font-semibold group-hover:text-emerald-600">Recordarme</span>
+                      </label>
+                      <a href="#" className="text-orange-600 hover:text-orange-700 font-bold hover:underline">
+                        ¿Olvidaste tu contraseña?
+                      </a>
+                    </div>
 
-                  {/* Login Button con gradiente científico */}
-                  <button 
-                    type="button"
-                    className="w-full py-4 rounded-xl font-bold text-white text-lg shadow-xl hover:shadow-2xl transform hover:scale-105 active:scale-95 transition-all relative overflow-hidden group"
-                    style={{
-                      background: 'linear-gradient(135deg, #10b981 0%, #3b82f6 50%, #f59e0b 100%)'
-                    }}
-                  >
-                    <span className="relative z-10">🎯 Iniciar Sesión</span>
-                    <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity"></div>
-                  </button>
-                </div>
+                    {/* Login Button con gradiente científico */}
+                    <button 
+                      type="submit" // Cambiado a type="submit" para usar el formulario
+                      disabled={loading}
+                      className={`w-full py-4 rounded-xl font-bold text-white text-lg shadow-xl transition-all relative overflow-hidden group 
+                        ${loading 
+                          ? 'opacity-70 cursor-not-allowed bg-gray-400' 
+                          : 'hover:shadow-2xl transform hover:scale-105 active:scale-95'}
+                      `}
+                      style={{
+                        background: loading ? '#9ca3af' : 'linear-gradient(135deg, #10b981 0%, #3b82f6 50%, #f59e0b 100%)'
+                      }}
+                    >
+                      <span className="relative z-10 flex items-center justify-center">
+                        {loading ? (
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        ) : '🎯 Iniciar Sesión'}
+                      </span>
+                      <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity"></div>
+                    </button>
+                  </div>
+                </form>
 
                 {/* Divider */}
                 <div className="relative my-6">
