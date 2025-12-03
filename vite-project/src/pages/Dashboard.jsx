@@ -6,25 +6,24 @@ const Dashboard = () => {
   const [username, setUsername] = useState('');
   const navigate = useNavigate();
 
-  // 1. Obtener el nombre de usuario de localStorage al cargar
   useEffect(() => {
     const storedUsername = localStorage.getItem('username');
     if (storedUsername) {
       setUsername(storedUsername);
     } else {
-      // Si por alguna razón no hay nombre de usuario, redirigir al login
       handleLogout();
     }
   }, []);
 
-  // Función para cerrar sesión
   const handleLogout = () => {
-    // 2. Eliminar el token y el nombre de usuario de localStorage
     localStorage.removeItem('userToken');
     localStorage.removeItem('username');
-    
-    // 3. Redirigir al usuario a la página de inicio de sesión
     navigate('/');
+  };
+
+  // Función para navegar a los módulos
+  const handleModuleClick = (module) => {
+    navigate(`/modulo/${module}`);
   };
 
   return (
@@ -48,31 +47,114 @@ const Dashboard = () => {
         <p className="text-gray-500 mt-2">¡Aquí comienza tu aventura científica en EduPuzzle+!</p>
       </div>
 
-      {/* Contenido Principal */}
-      <div className="w-full max-w-4xl grid md:grid-cols-3 gap-6">
-        
-        {/* Tarjeta de Biología */}
-        <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-emerald-500 hover:shadow-xl transition duration-300">
-          <BookOpen className="text-emerald-500 mb-3" size={32} />
-          <h2 className="text-xl font-bold text-gray-800">Módulo de Biología</h2>
-          <p className="text-gray-600 mt-1">Explora la célula y la vida en la naturaleza.</p>
-          <button className="mt-4 text-emerald-600 font-semibold hover:underline">Ir a Rompecabezas 🌿</button>
+      {/* Sección de estadísticas rápidas */}
+      <div className="w-full max-w-4xl grid grid-cols-3 gap-4 mb-8">
+        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-4 rounded-xl shadow-lg text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-emerald-100 text-sm">Rompecabezas</p>
+              <p className="text-2xl font-bold">12</p>
+            </div>
+            <Trophy className="opacity-80" size={32} />
+          </div>
         </div>
         
-        {/* Tarjeta de Geografía */}
-        <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-500 hover:shadow-xl transition duration-300">
-          <Brain className="text-blue-500 mb-3" size={32} />
-          <h2 className="text-xl font-bold text-gray-800">Módulo de Geografía</h2>
-          <p className="text-gray-600 mt-1">Descubre los mapas, relieves y el clima global.</p>
-          <button className="mt-4 text-blue-600 font-semibold hover:underline">Ir a Rompecabezas 🌍</button>
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-xl shadow-lg text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-blue-100 text-sm">Completados</p>
+              <p className="text-2xl font-bold">7</p>
+            </div>
+            <Brain className="opacity-80" size={32} />
+          </div>
         </div>
         
-        {/* Tarjeta de Ciencias Naturales */}
-        <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-orange-500 hover:shadow-xl transition duration-300">
-          <Trophy className="text-orange-500 mb-3" size={32} />
-          <h2 className="text-xl font-bold text-gray-800">Ciencias Naturales</h2>
-          <p className="text-gray-600 mt-1">El mundo de la física y la química.</p>
-          <button className="mt-4 text-orange-600 font-semibold hover:underline">Ir a Rompecabezas 🔬</button>
+        <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-4 rounded-xl shadow-lg text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-orange-100 text-sm">Puntos</p>
+              <p className="text-2xl font-bold">850</p>
+            </div>
+            <BookOpen className="opacity-80" size={32} />
+          </div>
+        </div>
+      </div>
+
+      {/* Contenido Principal - Módulos de aprendizaje */}
+      <div className="w-full max-w-4xl">
+        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+          <span className="text-3xl">🧩</span>
+          Módulos de Rompecabezas
+        </h2>
+        
+        <div className="grid md:grid-cols-3 gap-6">
+          {/* Tarjeta de Biología */}
+          <div 
+            onClick={() => handleModuleClick('biologia')}
+            className="group bg-white p-6 rounded-xl shadow-lg border-t-4 border-emerald-500 hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer"
+          >
+            <div className="bg-emerald-100 w-16 h-16 rounded-full flex items-center justify-center mb-4 group-hover:bg-emerald-500 transition-colors duration-300">
+              <span className="text-3xl group-hover:scale-110 transition-transform duration-300">🌿</span>
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Biología</h2>
+            <p className="text-gray-600 text-sm mb-4">Explora células, ecosistemas y la diversidad de la vida</p>
+            <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+              <span>🧩 4 rompecabezas</span>
+              <span className="text-emerald-600 font-semibold">58% completo</span>
+            </div>
+            <button className="w-full bg-emerald-500 text-white py-2 rounded-lg font-semibold hover:bg-emerald-600 transition duration-200">
+              Jugar Ahora
+            </button>
+          </div>
+          
+          {/* Tarjeta de Geografía */}
+          <div 
+            onClick={() => handleModuleClick('geografia')}
+            className="group bg-white p-6 rounded-xl shadow-lg border-t-4 border-blue-500 hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer"
+          >
+            <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-500 transition-colors duration-300">
+              <span className="text-3xl group-hover:scale-110 transition-transform duration-300">🌍</span>
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Geografía</h2>
+            <p className="text-gray-600 text-sm mb-4">Descubre mapas, relieves, climas y culturas del mundo</p>
+            <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+              <span>🧩 4 rompecabezas</span>
+              <span className="text-blue-600 font-semibold">42% completo</span>
+            </div>
+            <button className="w-full bg-blue-500 text-white py-2 rounded-lg font-semibold hover:bg-blue-600 transition duration-200">
+              Jugar Ahora
+            </button>
+          </div>
+          
+          {/* Tarjeta de Ciencias Naturales */}
+          <div 
+            onClick={() => handleModuleClick('ciencias')}
+            className="group bg-white p-6 rounded-xl shadow-lg border-t-4 border-orange-500 hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer"
+          >
+            <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mb-4 group-hover:bg-orange-500 transition-colors duration-300">
+              <span className="text-3xl group-hover:scale-110 transition-transform duration-300">🔬</span>
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Ciencias Naturales</h2>
+            <p className="text-gray-600 text-sm mb-4">Experimenta con física, química y fenómenos naturales</p>
+            <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+              <span>🧩 4 rompecabezas</span>
+              <span className="text-orange-600 font-semibold">25% completo</span>
+            </div>
+            <button className="w-full bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 transition duration-200">
+              Jugar Ahora
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Sección motivacional */}
+      <div className="w-full max-w-4xl mt-8 bg-gradient-to-r from-purple-500 to-pink-500 p-6 rounded-xl shadow-lg text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-bold mb-2">🎯 ¡Sigue aprendiendo!</h3>
+            <p className="text-purple-100">Completa rompecabezas para desbloquear logros y aprender mientras te diviertes</p>
+          </div>
+          <div className="hidden md:block text-6xl opacity-80">🧠</div>
         </div>
       </div>
     </div>
