@@ -1,12 +1,17 @@
 import React, { useState } from "react";
-import { Mail, Lock, User, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, User, Eye, EyeOff, AlertTriangle, CheckCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const Register = () => {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
+  
+  const navigate = useNavigate();
 
   // Colores temáticos: Biología (verde), Geografía (azul), Ciencias Naturales (naranja/amarillo)
   const themeColors = {
@@ -117,32 +122,73 @@ const Register = () => {
     'leaf', 'dna', 'globe', 'mountain', 'atom', 'microscope'
   ];
 
+  // FUNCIÓN DE REGISTRO CORREGIDA
   const handleRegister = async (e) => {
-    e.preventDefault();
-    setErrorMsg("");
+    if (e) e.preventDefault();
+    
+    setError("");
+    setSuccess("");
+    setLoading(true);
 
-    const data = { username, email, password };
+    // Validaciones
+    if (!username || !email || !password) {
+      setError("Por favor completa todos los campos");
+      setLoading(false);
+      return;
+    }
+
+    if (username.length < 3) {
+      setError("El nombre de usuario debe tener al menos 3 caracteres");
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres");
+      setLoading(false);
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Por favor ingresa un email válido");
+      setLoading(false);
+      return;
+    }
 
     try {
-      const response = await fetch("http://localhost:3001/register", {
+      const response = await fetch("http://localhost:5000/api/auth/registro", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        headers: { 
+          "Content-Type": "application/json" 
+        },
+        body: JSON.stringify({ 
+          username, 
+          email, 
+          password 
+        }),
       });
 
-      const result = await response.json();
+      const data = await response.json();
 
-      if (!response.ok) {
-        setErrorMsg(result.msg || "Error desconocido");
-      } else {
-        alert(result.msg);
+      if (response.ok) {
+        setSuccess("¡Cuenta creada exitosamente! Redirigiendo al login...");
         setUsername("");
         setEmail("");
         setPassword("");
+        
+        // Redirigir al login después de 2 segundos
+        setTimeout(() => {
+          navigate('/');
+        }, 2000);
+      } else {
+        setError(data.error || "Error al crear la cuenta");
       }
     } catch (error) {
-      setErrorMsg("No se pudo conectar con el servidor");
-      console.error("Error de fetch:", error);
+      console.error("Error en registro:", error);
+      setError("Error de conexión con el servidor. Verifica que el backend esté corriendo.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -331,87 +377,122 @@ const Register = () => {
             <p className="text-gray-600 mb-6 text-center font-semibold">Comienza tu viaje en el conocimiento</p>
             
             {/* Register Form */}
-            <div className="space-y-5">
-              {/* Username Input */}
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  👤 Nombre de Usuario
-                </label>
-                <div className="relative">
-                  <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-emerald-600" size={20} />
-                  <input 
-                    type="text" 
-                    required
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 border-4 border-emerald-300 rounded-xl focus:ring-4 focus:ring-emerald-400 focus:border-emerald-500 transition outline-none hover:border-emerald-400 bg-white" 
-                    placeholder="Tu nombre de usuario" 
-                  />
+            <form onSubmit={handleRegister}>
+              <div className="space-y-5">
+                
+                {/* Mensaje de Error */}
+                {error && (
+                  <div className="flex items-center p-3 text-sm text-red-800 rounded-lg bg-red-100 border border-red-300 font-semibold">
+                    <AlertTriangle className="mr-2" size={20} />
+                    {error}
+                  </div>
+                )}
+
+                {/* Mensaje de Éxito */}
+                {success && (
+                  <div className="flex items-center p-3 text-sm text-green-800 rounded-lg bg-green-100 border border-green-300 font-semibold">
+                    <CheckCircle className="mr-2" size={20} />
+                    {success}
+                  </div>
+                )}
+
+                {/* Username Input */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    👤 Nombre de Usuario
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-emerald-600" size={20} />
+                    <input 
+                      type="text" 
+                      required
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className="w-full pl-12 pr-4 py-3 border-4 border-emerald-300 rounded-xl focus:ring-4 focus:ring-emerald-400 focus:border-emerald-500 transition outline-none hover:border-emerald-400 bg-white" 
+                      placeholder="Tu nombre de usuario" 
+                      disabled={loading}
+                      minLength={3}
+                    />
+                  </div>
                 </div>
+
+                {/* Email Input */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    📧 Correo Electrónico
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-600" size={20} />
+                    <input 
+                      type="email" 
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full pl-12 pr-4 py-3 border-4 border-blue-300 rounded-xl focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition outline-none hover:border-blue-400 bg-white" 
+                      placeholder="tu@email.com" 
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+
+                {/* Password Input */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    🔒 Contraseña
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-orange-600" size={20} />
+                    <input 
+                      type={showPassword ? "text" : "password"}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full pl-12 pr-12 py-3 border-4 border-orange-300 rounded-xl focus:ring-4 focus:ring-orange-400 focus:border-orange-500 transition outline-none hover:border-orange-400 bg-white" 
+                      placeholder="Mínimo 6 caracteres" 
+                      disabled={loading}
+                      minLength={6}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 transform -translate-y-1/2 text-orange-600 hover:text-orange-800 transition"
+                      disabled={loading}
+                    >
+                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Register Button con gradiente científico */}
+                <button 
+                  type="submit"
+                  disabled={loading}
+                  className={`w-full py-4 rounded-xl font-bold text-white text-lg shadow-xl transition-all relative overflow-hidden group 
+                    ${loading 
+                      ? 'opacity-70 cursor-not-allowed bg-gray-400' 
+                      : 'hover:shadow-2xl transform hover:scale-105 active:scale-95'}
+                  `}
+                  style={{
+                    background: loading ? '#9ca3af' : 'linear-gradient(135deg, #10b981 0%, #3b82f6 50%, #f59e0b 100%)'
+                  }}
+                >
+                  <span className="relative z-10 flex items-center justify-center">
+                    {loading ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Creando cuenta...
+                      </>
+                    ) : (
+                      '🚀 Crear Cuenta'
+                    )}
+                  </span>
+                  <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity"></div>
+                </button>
               </div>
-
-              {/* Email Input */}
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  📧 Correo Electrónico
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-600" size={20} />
-                  <input 
-                    type="email" 
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 border-4 border-blue-300 rounded-xl focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition outline-none hover:border-blue-400 bg-white" 
-                    placeholder="tu@email.com" 
-                  />
-                </div>
-              </div>
-
-              {/* Password Input */}
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  🔒 Contraseña
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-orange-600" size={20} />
-                  <input 
-                    type={showPassword ? "text" : "password"}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-12 pr-12 py-3 border-4 border-orange-300 rounded-xl focus:ring-4 focus:ring-orange-400 focus:border-orange-500 transition outline-none hover:border-orange-400 bg-white" 
-                    placeholder="Mínimo 6 caracteres" 
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-orange-600 hover:text-orange-800 transition"
-                  >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Mensaje de error */}
-              {errorMsg && (
-                <div className="bg-red-100 border-4 border-red-400 text-red-700 px-4 py-3 rounded-xl font-bold text-center">
-                  {errorMsg}
-                </div>
-              )}
-
-              {/* Register Button con gradiente científico */}
-              <button 
-                onClick={handleRegister}
-                className="w-full py-4 rounded-xl font-bold text-white text-lg shadow-xl hover:shadow-2xl transform hover:scale-105 active:scale-95 transition-all relative overflow-hidden group"
-                style={{
-                  background: 'linear-gradient(135deg, #10b981 0%, #3b82f6 50%, #f59e0b 100%)'
-                }}
-              >
-                <span className="relative z-10">🚀 Crear Cuenta</span>
-                <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity"></div>
-              </button>
-            </div>
+            </form>
 
             {/* Divider */}
             <div className="relative my-6">
@@ -441,12 +522,12 @@ const Register = () => {
             <div className="mt-6 text-center">
               <p className="text-gray-700 font-semibold">
                 ¿Ya tienes cuenta?{' '}
-                <a 
-                  href="/"
+                <button
+                  onClick={() => navigate('/')}
                   className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-blue-600 to-orange-600 font-black hover:underline"
                 >
                   Inicia Sesión aquí 🔑
-                </a>
+                </button>
               </p>
             </div>
 

@@ -1,36 +1,64 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, User, Trophy, Star, TrendingUp, Award, Play, Lock, Zap, Map, Brain } from 'lucide-react';
+import { LogOut, User, Trophy, Star, TrendingUp, Award, Play, Lock, Map, Loader } from 'lucide-react';
 
 const Dashboard = () => {
   const [username, setUsername] = useState('');
-  const [userData, setUserData] = useState({
-    nivel: 5,
-    mundoActual: 1,
-    nivelActual: 3,
-    puntosTotales: 450,
-    insignias: 8,
-    racha: 7,
-    progresoGeneral: 35
-  });
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
   const navigate = useNavigate();
 
-  // Colores temáticos: Biología (verde), Geografía (azul), Ciencias Naturales (naranja/amarillo)
   const themeColors = {
-    biologia: ['#10b981', '#059669', '#34d399', '#6ee7b7'], // Esmeralda/Verde
-    geografia: ['#3b82f6', '#2563eb', '#60a5fa', '#06b6d4'], // Azul/Cian
-    ciencias: ['#f59e0b', '#ea580c', '#fbbf24', '#fb923c'] // Naranja/Ámbar
+    biologia: ['#10b981', '#059669', '#34d399', '#6ee7b7'],
+    geografia: ['#3b82f6', '#2563eb', '#60a5fa', '#06b6d4'],
+    ciencias: ['#f59e0b', '#ea580c', '#fbbf24', '#fb923c']
   };
 
+  // CARGAR DATOS DEL USUARIO DESDE LA BD
   useEffect(() => {
-    const storedUsername = localStorage.getItem('username');
-    if (storedUsername) {
+    const fetchUserData = async () => {
+      const token = localStorage.getItem('userToken');
+      const storedUsername = localStorage.getItem('username');
+      
+      if (!token || !storedUsername) {
+        navigate('/login');
+        return;
+      }
+
       setUsername(storedUsername);
-    } else {
-      // Usar '/' o '/login' dependiendo de la ruta raíz
-      navigate('/login'); 
-    }
+
+      try {
+        const response = await fetch('http://localhost:5000/api/usuario/progreso', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            localStorage.removeItem('userToken');
+            localStorage.removeItem('username');
+            navigate('/login');
+            return;
+          }
+          throw new Error('Error al cargar los datos del usuario');
+        }
+
+        const data = await response.json();
+        setUserData(data);
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching user data:', err);
+        setError(err.message);
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
   }, [navigate]);
 
   const handleLogout = () => {
@@ -40,18 +68,14 @@ const Dashboard = () => {
   };
 
   const mundos = [
-    { id: 1, nombre: 'Biología', emoji: '🌿', color: 'emerald', desbloqueado: true, progreso: 60 },
-    { id: 2, nombre: 'Geografía', emoji: '🌍', color: 'blue', desbloqueado: true, progreso: 40 },
-    { id: 3, nombre: 'Ciencias Naturales', emoji: '🔬', color: 'orange', desbloqueado: true, progreso: 25 },
-    { id: 4, nombre: 'Historia', emoji: '📚', color: 'purple', desbloqueado: false, progreso: 0 },
+    { id: 1, nombre: 'Biología', emoji: '🌿', color: 'emerald' },
+    { id: 2, nombre: 'Geografía', emoji: '🌍', color: 'blue' },
+    { id: 3, nombre: 'Ciencias Naturales', emoji: '🔬', color: 'orange' },
+    { id: 4, nombre: 'Historia', emoji: '📚', color: 'purple' },
   ];
 
-  // --- HELPERS DE DISEÑO (Para el fondo flotante) ---
-  const backgroundIcons = [
-    'leaf', 'dna', 'globe', 'mountain', 'atom', 'microscope'
-  ];
+  const backgroundIcons = ['leaf', 'dna', 'globe', 'mountain', 'atom', 'microscope'];
 
-  // Iconos SVG temáticos para el fondo
   const ThematicIcon = ({ type, x, y, size, rotation }) => {
     const icons = {
       leaf: (<path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8zm0-14c-3.3 0-6 2.7-6 6h2c0-2.2 1.8-4 4-4V6z" fill="#10b981" opacity="0.3"/>),
@@ -124,7 +148,50 @@ const Dashboard = () => {
       </svg>
     );
   };
-  // --- FIN HELPERS DE DISEÑO ---
+
+  // PANTALLA DE CARGA
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-900 via-blue-900 to-orange-900">
+        <div className="bg-white rounded-3xl shadow-2xl p-12 text-center">
+          <Loader className="animate-spin text-blue-600 mx-auto mb-4" size={48} />
+          <h2 className="text-2xl font-black text-gray-800">Cargando tu progreso...</h2>
+          <p className="text-gray-600 mt-2">Espera un momento</p>
+        </div>
+      </div>
+    );
+  }
+
+  // PANTALLA DE ERROR
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-900 via-blue-900 to-orange-900">
+        <div className="bg-white rounded-3xl shadow-2xl p-12 text-center max-w-md">
+          <div className="text-red-600 text-5xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-black text-gray-800 mb-4">Error al cargar datos</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Combinar mundos con progreso de la BD
+  const mundosConProgreso = mundos.map(mundo => {
+    const progresoMundo = userData.mundos?.find(m => m.mundoId === mundo.id);
+    return {
+      ...mundo,
+      desbloqueado: progresoMundo?.desbloqueado || false,
+      progreso: progresoMundo?.progreso || 0
+    };
+  });
+
+  const mundoActual = mundosConProgreso.find(m => m.desbloqueado && m.progreso < 100) || mundosConProgreso[0];
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-emerald-900 via-blue-900 to-orange-900 font-sans">
@@ -146,7 +213,7 @@ const Dashboard = () => {
         })}
       </div>
 
-      {/* Piezas de rompecabezas temáticas flotantes */}
+      {/* Piezas de rompecabezas */}
       <div className="absolute inset-0 overflow-hidden">
         {Array.from({length: 25}).map((_, i) => {
           const size = 70 + Math.random() * 50;
@@ -204,7 +271,10 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <h1 className="text-2xl font-black text-gray-800 capitalize">{username}</h1>
-                  <p className="text-sm text-gray-600 font-semibold">Nivel <span className="text-emerald-600">{userData.nivel}</span> • <span className="text-orange-600">{userData.puntosTotales}</span> puntos</p>
+                  <p className="text-sm text-gray-600 font-semibold">
+                    Nivel <span className="text-emerald-600">{userData.nivel}</span> • 
+                    <span className="text-orange-600"> {userData.puntosTotales}</span> puntos
+                  </p>
                 </div>
               </div>
               <button
@@ -239,14 +309,16 @@ const Dashboard = () => {
             <div className="mb-6">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-lg font-bold text-gray-800">Progreso General</span>
-                <span className="text-lg font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 to-blue-600">{userData.progresoGeneral}%</span>
+                <span className="text-lg font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 to-blue-600">
+                  {userData.progresoGeneral}%
+                </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-5 overflow-hidden shadow-inner">
                 <div 
                   className="h-full rounded-full transition-all duration-700"
                   style={{ 
                     width: `${userData.progresoGeneral}%`,
-                    background: 'linear-gradient(90deg, #10b981, #3b82f6, #f59e0b)' // Gradiente de 3 colores
+                    background: 'linear-gradient(90deg, #10b981, #3b82f6, #f59e0b)'
                   }}
                 />
               </div>
@@ -254,11 +326,11 @@ const Dashboard = () => {
 
             {/* Botón principal de juego */}
             <button
-              onClick={() => navigate(`/mundos/${userData.mundoActual}/nivel/${userData.nivelActual}`)}
+              onClick={() => navigate(`/mundos/${mundoActual.id}`)}
               className="w-full bg-gradient-to-r from-emerald-600 via-blue-600 to-orange-600 hover:from-emerald-700 hover:to-orange-700 text-white font-black py-4 rounded-xl shadow-xl hover:shadow-2xl transition transform hover:scale-[1.01] flex items-center justify-center gap-3"
             >
               <Play size={24} fill="white" />
-              <span className="text-xl">Continuar Nivel {userData.nivelActual} de {mundos.find(m => m.id === userData.mundoActual)?.nombre}</span>
+              <span className="text-xl">Continuar con {mundoActual.nombre}</span>
             </button>
           </div>
 
@@ -298,7 +370,7 @@ const Dashboard = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-gray-600 text-sm font-semibold">Trofeos</p>
-                  <p className="text-4xl font-black text-cyan-600">3</p>
+                  <p className="text-4xl font-black text-cyan-600">{userData.trofeos}</p>
                 </div>
                 <Trophy className="text-cyan-500" size={40} />
               </div>
@@ -342,12 +414,12 @@ const Dashboard = () => {
               Mapa de Mundos Disponibles
             </h2>
             <div className="grid md:grid-cols-2 gap-6">
-              {mundos.map((mundo) => {
+              {mundosConProgreso.map((mundo) => {
                 const colorClasses = {
                   emerald: 'from-emerald-500 to-emerald-600 border-emerald-500',
                   blue: 'from-blue-500 to-blue-600 border-blue-500',
                   orange: 'from-orange-500 to-orange-600 border-orange-500',
-                  purple: 'from-gray-500 to-gray-600 border-gray-500' // Gris para mundos bloqueados
+                  purple: 'from-gray-500 to-gray-600 border-gray-500'
                 };
                 const iconColor = mundo.desbloqueado ? 'text-white' : 'text-gray-700';
 
@@ -370,11 +442,13 @@ const Dashboard = () => {
                     <div className="flex items-center gap-4 mb-4">
                       <div className={`text-5xl ${iconColor}`}>{mundo.emoji}</div>
                       <div className="flex-1">
-                        <h3 className={`text-2xl font-black ${mundo.desbloqueado ? 'text-white' : 'text-gray-800'}`}>{mundo.nombre}</h3>
+                        <h3 className={`text-2xl font-black ${mundo.desbloqueado ? 'text-white' : 'text-gray-800'}`}>
+                          {mundo.nombre}
+                        </h3>
                         {mundo.desbloqueado ? (
                           <p className="text-white opacity-90 font-semibold text-sm">Progreso: {mundo.progreso}%</p>
                         ) : (
-                          <p className="text-gray-700 font-semibold text-sm">¡Completa Biología para desbloquear!</p>
+                          <p className="text-gray-700 font-semibold text-sm">¡Completa el mundo anterior!</p>
                         )}
                       </div>
                     </div>

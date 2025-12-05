@@ -1,76 +1,69 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, BookOpen, Brain, Trophy, Users, AlertTriangle } from 'lucide-react';
-import { Link, useNavigate } from "react-router-dom"; // Importamos useNavigate
+import { Link, useNavigate } from "react-router-dom";
 
 const Login = () => {
-  // Inicialización de estados para los inputs y mensajes
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(''); // Estado para manejar errores de login
-  const [loading, setLoading] = useState(false); // Estado para el botón de carga
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   
-  const navigate = useNavigate(); // Hook para la navegación
+  const navigate = useNavigate();
 
-  // Colores temáticos: Biología (verde), Geografía (azul), Ciencias Naturales (naranja/amarillo)
   const themeColors = {
     biologia: ['#10b981', '#059669', '#34d399', '#6ee7b7'],
     geografia: ['#3b82f6', '#2563eb', '#60a5fa', '#06b6d4'],
     ciencias: ['#f59e0b', '#ea580c', '#fbbf24', '#fb923c']
   };
 
-  // Función para manejar el inicio de sesión
-  const handleLogin = async () => {
-    setError(''); // Limpiar errores anteriores
+  // FUNCIÓN DE LOGIN CORREGIDA
+  const handleLogin = async (e) => {
+    if (e) e.preventDefault();
+    
+    setError('');
     setLoading(true);
 
+    // Validación básica
     if (!email || !password) {
-      setError('Por favor, ingresa tu correo y contraseña.');
+      setError('Por favor completa todos los campos');
       setLoading(false);
       return;
     }
 
     try {
-      // 1. Enviar datos al endpoint del servidor Express
-      // ¡Ajustado a tu puerto 3001!
-      const response = await fetch('http://localhost:3001/api/login', { 
+      const response = await fetch('http://localhost:5000/api/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+        headers: { 
+          'Content-Type': 'application/json' 
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ 
+          username: email, // El backend espera 'username'
+          password: password 
+        })
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        // 2. Éxito en el Login
-        console.log('Inicio de sesión exitoso:', data.message);
-        
-        // 3. Almacenar el token de autenticación (JWT) en localStorage
+        // Guardar token y username
         localStorage.setItem('userToken', data.token);
-        
-        // Opcional: guardar el nombre de usuario
         localStorage.setItem('username', data.username);
-
-        // 4. Redirigir al usuario (ej. a la página de inicio o dashboard)
-        navigate('/dashboard'); 
-
+        
+        // Redirigir al dashboard
+        navigate('/dashboard');
       } else {
-        // 5. Fallo en el Login (ej. credenciales incorrectas)
-        setError(data.message || 'Credenciales inválidas o error desconocido.');
+        // Mostrar error del servidor
+        setError(data.error || 'Credenciales inválidas');
       }
-    } catch (err) {
-      // Error de red (servidor apagado, URL incorrecta, etc.)
-      console.error('Error de red o servidor:', err);
-      setError('Error al conectar con el servidor. Asegúrate de que el backend esté corriendo.');
+    } catch (error) {
+      console.error('Error en login:', error);
+      setError('Error de conexión con el servidor. Verifica que el backend esté corriendo.');
     } finally {
       setLoading(false);
     }
   };
 
-
-  // Iconos SVG temáticos para el fondo (sin cambios, omitido por brevedad en este bloque)
   const ThematicIcon = ({ type, x, y, size, rotation }) => {
     const icons = {
       leaf: (
@@ -123,7 +116,6 @@ const Login = () => {
     );
   };
 
-  // SVG de pieza de rompecabezas temática (fondo) (sin cambios, omitido por brevedad en este bloque)
   const PuzzlePiece = ({ color, size = 100, topTab = false, rightTab = false, bottomTab = false, leftTab = false, icon }) => {
     const tabSize = size * 0.25;
     
@@ -408,7 +400,7 @@ const Login = () => {
                 <p className="text-gray-600 mb-6 text-center font-semibold">Conecta con el conocimiento científico</p>
                 
                 {/* Login Form */}
-                <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
+                <form onSubmit={handleLogin}>
                   <div className="space-y-5">
                     
                     {/* Mensaje de Error (si existe) */}
@@ -419,21 +411,22 @@ const Login = () => {
                       </div>
                     )}
                     
-                    {/* Email Input */}
+                    {/* Email/Username Input */}
                     <div>
                       <label htmlFor="email" className="block text-sm font-bold text-gray-700 mb-2">
-                        📧 Correo Electrónico
+                        📧 Usuario o Correo Electrónico
                       </label>
                       <div className="relative">
                         <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-emerald-600" size={20} />
                         <input 
                           id="email"
-                          type="email" 
+                          type="text" 
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           className="w-full pl-12 pr-4 py-3 border-4 border-emerald-300 rounded-xl focus:ring-4 focus:ring-emerald-400 focus:border-emerald-500 transition outline-none hover:border-emerald-400 bg-white" 
-                          placeholder="tu@email.com" 
+                          placeholder="tu@email.com o usuario" 
                           required
+                          disabled={loading}
                         />
                       </div>
                     </div>
@@ -453,11 +446,13 @@ const Login = () => {
                           className="w-full pl-12 pr-12 py-3 border-4 border-blue-300 rounded-xl focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition outline-none hover:border-blue-400 bg-white" 
                           placeholder="••••••••" 
                           required
+                          disabled={loading}
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
                           className="absolute right-4 top-1/2 transform -translate-y-1/2 text-blue-600 hover:text-blue-800 transition"
+                          disabled={loading}
                         >
                           {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                         </button>
@@ -477,7 +472,7 @@ const Login = () => {
 
                     {/* Login Button con gradiente científico */}
                     <button 
-                      type="submit" // Cambiado a type="submit" para usar el formulario
+                      type="submit"
                       disabled={loading}
                       className={`w-full py-4 rounded-xl font-bold text-white text-lg shadow-xl transition-all relative overflow-hidden group 
                         ${loading 
@@ -490,11 +485,16 @@ const Login = () => {
                     >
                       <span className="relative z-10 flex items-center justify-center">
                         {loading ? (
+                          <>
                             <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                        ) : '🎯 Iniciar Sesión'}
+                            Iniciando sesión...
+                          </>
+                        ) : (
+                          '🎯 Iniciar Sesión'
+                        )}
                       </span>
                       <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity"></div>
                     </button>
@@ -540,21 +540,19 @@ const Login = () => {
 
                 {/* Barra inferior temática */}
                 <div className="flex h-3 mt-6 rounded-full overflow-hidden shadow-lg">
-                  <div className="flex-1 bg-amber-400"></div>
-                  <div className="flex-1 bg-orange-500"></div>
-                  <div className="flex-1 bg-cyan-500"></div>
-                  <div className="flex-1 bg-blue-500"></div>
-                  <div className="flex-1 bg-green-600"></div>
-                  <div className="flex-1 bg-emerald-500"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
+<div className="flex-1 bg-amber-400"></div>
+<div className="flex-1 bg-orange-500"></div>
+<div className="flex-1 bg-cyan-500"></div>
+<div className="flex-1 bg-blue-500"></div>
+<div className="flex-1 bg-green-600"></div>
+<div className="flex-1 bg-emerald-500"></div>
+</div>
+</div>
+</div>
+</div>
     </div>
-  );
+  </div>
+</div>
+);
 };
-
 export default Login;
