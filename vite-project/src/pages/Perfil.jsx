@@ -1,22 +1,22 @@
-import React, { useState } from 'react';
-// Mock de useNavigate para que el componente sea ejecutable
-const useNavigate = () => (path) => { console.log("Navigating to:", path); };
-// Mock de alert para evitar problemas en el iframe
-const alert = (message) => console.log('Alerta:', message); 
-
-import { ArrowLeft, User, Mail, Calendar, Edit2, Save, Settings, Shield, Zap, Heart } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, User, Mail, Calendar, Edit2, Save, Settings, Shield, Zap, Loader } from 'lucide-react';
 
 const Perfil = () => {
   const navigate = useNavigate();
   const [editando, setEditando] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
   
-  // Datos simulados del usuario, utilizando localStorage para el nombre
   const [userData, setUserData] = useState({
-    nombre: localStorage.getItem('username') || 'Explorador Científico',
-    email: 'usuario@edupuzzle.com',
-    fechaRegistro: '2024-11-15',
-    nivel: 5,
-    puntos: 450,
+    username: '',
+    email: '',
+    fechaRegistro: '',
+    nivel: 1,
+    puntos: 0,
+    racha: 0,
+    insignias: 0,
     avatar: '🧑‍🎓'
   });
 
@@ -24,23 +24,108 @@ const Perfil = () => {
     sonido: true,
     musica: true,
     notificaciones: true,
-    modoOscuro: false,
+    modo_oscuro: false,
     dificultad: 'medio'
   });
 
   const avatares = ['👤', '😊', '🤓', '🧑‍🎓', '👨‍🔬', '👩‍🔬', '🧑‍💻', '🦸', '🦸‍♀️', '🧙', '🧙‍♀️', '🐱', '🐶', '🦊', '🐼', '🦁'];
 
-  // Colores temáticos: Biología (verde), Geografía (azul), Ciencias Naturales (naranja/amarillo)
   const themeColors = {
-    biologia: ['#10b981', '#059669', '#34d399', '#6ee7b7'], // Esmeralda/Verde
-    geografia: ['#3b82f6', '#2563eb', '#60a5fa', '#06b6d4'], // Azul/Cian
-    ciencias: ['#f59e0b', '#ea580c', '#fbbf24', '#fb923c'] // Naranja/Ámbar
+    biologia: ['#10b981', '#059669', '#34d399', '#6ee7b7'],
+    geografia: ['#3b82f6', '#2563eb', '#60a5fa', '#06b6d4'],
+    ciencias: ['#f59e0b', '#ea580c', '#fbbf24', '#fb923c']
   };
 
-  const handleGuardar = () => {
-    localStorage.setItem('username', userData.nombre);
-    setEditando(false);
-    alert('Perfil actualizado correctamente');
+  // CARGAR DATOS DEL PERFIL DESDE LA BD
+  useEffect(() => {
+    const fetchPerfil = async () => {
+      const token = localStorage.getItem('userToken');
+      
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      try {
+        const response = await fetch('http://localhost:5000/api/usuario/perfil', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            localStorage.removeItem('userToken');
+            localStorage.removeItem('username');
+            navigate('/login');
+            return;
+          }
+          throw new Error('Error al cargar el perfil');
+        }
+
+        const data = await response.json();
+        
+        setUserData({
+          username: data.username,
+          email: data.email,
+          fechaRegistro: data.fechaRegistro,
+          nivel: data.nivel,
+          puntos: data.puntos,
+          racha: data.racha,
+          insignias: data.insignias,
+          avatar: data.avatar || '🧑‍🎓'
+        });
+
+        setConfiguracion(data.configuracion);
+        setLoading(false);
+
+      } catch (err) {
+        console.error('Error fetching profile:', err);
+        setError(err.message);
+        setLoading(false);
+      }
+    };
+
+    fetchPerfil();
+  }, [navigate]);
+
+  // GUARDAR CAMBIOS EN LA BD
+  const handleGuardar = async () => {
+    const token = localStorage.getItem('userToken');
+    setSaving(true);
+
+    try {
+      const response = await fetch('http://localhost:5000/api/usuario/perfil', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          username: userData.username,
+          avatar: userData.avatar,
+          configuracion: configuracion
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al guardar el perfil');
+      }
+
+      // Actualizar el username en localStorage
+      localStorage.setItem('username', userData.username);
+      
+      setEditando(false);
+      alert('✅ Perfil actualizado correctamente');
+
+    } catch (err) {
+      console.error('Error saving profile:', err);
+      alert('❌ Error al guardar el perfil');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleConfigChange = (key, value) => {
@@ -48,18 +133,15 @@ const Perfil = () => {
   };
 
   const calcularDiasActivo = () => {
+    if (!userData.fechaRegistro) return 0;
     const fechaRegistro = new Date(userData.fechaRegistro);
     const hoy = new Date();
     const diferencia = Math.floor((hoy - fechaRegistro) / (1000 * 60 * 60 * 24));
     return diferencia;
   };
-  
-  // --- HELPERS DE DISEÑO (Para el fondo flotante) ---
-  const backgroundIcons = [
-    'leaf', 'dna', 'globe', 'mountain', 'atom', 'microscope'
-  ];
 
-  // Iconos SVG temáticos para el fondo
+  const backgroundIcons = ['leaf', 'dna', 'globe', 'mountain', 'atom', 'microscope'];
+
   const ThematicIcon = ({ type, x, y, size, rotation }) => {
     const icons = {
       leaf: (<path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8zm0-14c-3.3 0-6 2.7-6 6h2c0-2.2 1.8-4 4-4V6z" fill="#10b981" opacity="0.3"/>),
@@ -133,6 +215,36 @@ const Perfil = () => {
     );
   };
 
+  // PANTALLA DE CARGA
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-900 via-blue-900 to-orange-900">
+        <div className="bg-white rounded-3xl shadow-2xl p-12 text-center">
+          <Loader className="animate-spin text-blue-600 mx-auto mb-4" size={48} />
+          <h2 className="text-2xl font-black text-gray-800">Cargando tu perfil...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  // PANTALLA DE ERROR
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-900 via-blue-900 to-orange-900">
+        <div className="bg-white rounded-3xl shadow-2xl p-12 text-center max-w-md">
+          <div className="text-red-600 text-5xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-black text-gray-800 mb-4">Error al cargar perfil</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-emerald-900 via-blue-900 to-orange-900 p-4 font-sans">
@@ -223,7 +335,7 @@ const Perfil = () => {
             </div>
             <div className="flex-1 text-white text-center md:text-left">
               <h1 className="text-4xl font-black mb-2 drop-shadow-lg">
-                {userData.nombre}
+                {userData.username}
               </h1>
               <div className="flex flex-col sm:flex-row gap-4 text-white opacity-90 font-semibold text-sm justify-center md:justify-start">
                 <span className="flex items-center gap-1">
@@ -236,10 +348,25 @@ const Perfil = () => {
             </div>
             <button
               onClick={() => editando ? handleGuardar() : setEditando(true)}
-              className="bg-white text-gray-800 font-bold px-4 py-2 rounded-xl transition flex items-center gap-2 shadow-lg hover:bg-gray-100 transform hover:scale-105 active:scale-95"
+              disabled={saving}
+              className="bg-white text-gray-800 font-bold px-4 py-2 rounded-xl transition flex items-center gap-2 shadow-lg hover:bg-gray-100 transform hover:scale-105 active:scale-95 disabled:opacity-50"
             >
-              {editando ? <Save size={20} className="text-emerald-600"/> : <Edit2 size={20} className="text-orange-600"/>}
-              {editando ? 'Guardar Cambios' : 'Editar Perfil'}
+              {saving ? (
+                <>
+                  <Loader className="animate-spin" size={20} />
+                  Guardando...
+                </>
+              ) : editando ? (
+                <>
+                  <Save size={20} className="text-emerald-600"/>
+                  Guardar Cambios
+                </>
+              ) : (
+                <>
+                  <Edit2 size={20} className="text-orange-600"/>
+                  Editar Perfil
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -262,8 +389,8 @@ const Perfil = () => {
                     <label className="block text-sm font-bold text-gray-700 mb-2">Nombre de Usuario</label>
                     <input
                       type="text"
-                      value={userData.nombre}
-                      onChange={(e) => setUserData({ ...userData, nombre: e.target.value })}
+                      value={userData.username}
+                      onChange={(e) => setUserData({ ...userData, username: e.target.value })}
                       className="w-full px-4 py-3 border-4 border-orange-300 rounded-xl focus:ring-4 focus:ring-orange-400 focus:border-orange-500 transition outline-none hover:border-orange-400 bg-white"
                       placeholder="Nombre de Usuario"
                     />
@@ -273,11 +400,11 @@ const Perfil = () => {
                     <input
                       type="email"
                       value={userData.email}
-                      onChange={(e) => setUserData({ ...userData, email: e.target.value })}
-                      className="w-full px-4 py-3 border-4 border-emerald-300 rounded-xl focus:ring-4 focus:ring-emerald-400 focus:border-emerald-500 transition outline-none hover:border-emerald-400 bg-white"
+                      className="w-full px-4 py-3 border-4 border-emerald-300 rounded-xl bg-gray-100 cursor-not-allowed"
                       placeholder="Email"
-                      readOnly // Email is usually read-only
+                      readOnly
                     />
+                    <p className="text-xs text-gray-500 mt-1">El email no se puede cambiar</p>
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-3">Selecciona tu Avatar</label>
@@ -285,10 +412,11 @@ const Perfil = () => {
                       {avatares.map((avatar, idx) => (
                         <button
                           key={idx}
+                          type="button"
                           onClick={() => setUserData({ ...userData, avatar })}
                           className={`text-4xl p-3 rounded-xl transition transform hover:scale-110 shadow-md ${
                             userData.avatar === avatar
-                              ? 'bg-blue-100 ring-4 ring-blue-500 text-blue-800'
+                              ? 'bg-blue-100 ring-4 ring-blue-500'
                               : 'bg-gray-50 hover:bg-blue-50'
                           }`}
                         >
@@ -302,7 +430,7 @@ const Perfil = () => {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between p-4 bg-orange-50 border-l-4 border-orange-400 rounded-xl shadow-sm">
                     <span className="font-bold text-gray-700">Nombre de Usuario</span>
-                    <span className="text-gray-900 font-semibold">{userData.nombre}</span>
+                    <span className="text-gray-900 font-semibold">{userData.username}</span>
                   </div>
                   <div className="flex items-center justify-between p-4 bg-emerald-50 border-l-4 border-emerald-400 rounded-xl shadow-sm">
                     <span className="font-bold text-gray-700">Email</span>
@@ -310,18 +438,9 @@ const Perfil = () => {
                   </div>
                   <div className="flex items-center justify-between p-4 bg-blue-50 border-l-4 border-blue-400 rounded-xl shadow-sm">
                     <span className="font-bold text-gray-700">Registro</span>
-                    <span className="text-gray-900 font-semibold">{userData.fechaRegistro}</span>
+                    <span className="text-gray-900 font-semibold">{new Date(userData.fechaRegistro).toLocaleDateString()}</span>
                   </div>
                 </div>
-              )}
-              {/* Botón Guardar si no está en el banner */}
-              {editando && (
-                <button
-                  onClick={handleGuardar}
-                  className="w-full mt-6 bg-gradient-to-r from-emerald-500 to-blue-500 text-white py-3 rounded-xl font-bold hover:from-emerald-600 hover:to-blue-600 transition shadow-lg transform hover:scale-[1.01]"
-                >
-                  <Save size={20} className="inline mr-2" /> Guardar Cambios
-                </button>
               )}
             </div>
 
@@ -355,138 +474,137 @@ const Perfil = () => {
                   <div>
                     <p className="font-bold text-gray-800">Música de Fondo</p>
                     <p className="text-sm text-gray-600">Banda sonora de la exploración</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={configuracion.musica}
-                      onChange={(e) => handleConfigChange('musica', e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
-                  </label>
-                </div>
-                
-                {/* Dificultad */}
-                <div className="p-4 bg-gray-50 border-2 border-blue-100 rounded-xl">
-                  <p className="font-bold text-gray-800 mb-3">Nivel de Dificultad</p>
-                  <div className="flex gap-2">
-                    {['facil', 'medio', 'dificil'].map((nivel) => (
-                      <button
-                        key={nivel}
-                        onClick={() => handleConfigChange('dificultad', nivel)}
-                        className={`flex-1 py-3 rounded-xl font-bold transition shadow-md transform hover:scale-[1.02] ${
-                          configuracion.dificultad === nivel
-                            ? 'bg-blue-600 text-white shadow-blue-400/50'
-                            : 'bg-white text-gray-700 hover:bg-blue-50 border border-blue-300'
-                        }`}
-                      >
-                        {nivel.charAt(0).toUpperCase() + nivel.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Seguridad (Integrado en Configuración) */}
-                <div className="p-4 bg-gray-50 border-2 border-orange-100 rounded-xl">
-                  <h3 className="text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
-                    <Shield className="text-orange-500" size={24} />
-                    Seguridad
-                  </h3>
-                  <button className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-xl font-bold transition mb-3 shadow-md">
-                    Cambiar Contraseña
+</div>
+<label className="relative inline-flex items-center cursor-pointer">
+<input
+type="checkbox"
+checked={configuracion.musica}
+onChange={(e) => handleConfigChange('musica', e.target.checked)}
+className="sr-only peer"
+/>
+<div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+</label>
+</div>
+            {/* Dificultad */}
+            <div className="p-4 bg-gray-50 border-2 border-blue-100 rounded-xl">
+              <p className="font-bold text-gray-800 mb-3">Nivel de Dificultad</p>
+              <div className="flex gap-2">
+                {['facil', 'medio', 'dificil'].map((nivel) => (
+                  <button
+                    key={nivel}
+                    type="button"
+                    onClick={() => handleConfigChange('dificultad', nivel)}
+                    className={`flex-1 py-3 rounded-xl font-bold transition shadow-md transform hover:scale-[1.02] ${
+                      configuracion.dificultad === nivel
+                        ? 'bg-blue-600 text-white shadow-blue-400/50'
+                        : 'bg-white text-gray-700 hover:bg-blue-50 border border-blue-300'
+                    }`}
+                  >
+                    {nivel.charAt(0).toUpperCase() + nivel.slice(1)}
                   </button>
-                  <button className="w-full bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-bold transition shadow-md">
-                    Eliminar Cuenta
-                  </button>
-                </div>
+                ))}
               </div>
             </div>
-          </div>
 
-          {/* COLUMNA DERECHA: ESTADÍSTICAS */}
-          <div className="lg:col-span-1 space-y-6">
-            
-            {/* 3. Próximo Nivel */}
-            <div className="bg-white rounded-3xl shadow-xl p-6 border-4 border-emerald-400/50">
-              <h3 className="text-xl font-black mb-3 bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 to-blue-600 flex items-center gap-2">
-                <Zap className="text-emerald-500" size={24} /> Progreso de Nivel
+            {/* Seguridad */}
+            <div className="p-4 bg-gray-50 border-2 border-orange-100 rounded-xl">
+              <h3 className="text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
+                <Shield className="text-orange-500" size={24} />
+                Seguridad
               </h3>
-              <p className="mb-4 text-gray-700 font-semibold">
-                Necesitas <span className="text-emerald-600 font-black">50 puntos</span> más para el nivel {userData.nivel + 1}
-              </p>
-              <div className="w-full bg-gray-200 rounded-full h-5 overflow-hidden shadow-inner">
-                <div 
-                    className="h-full rounded-full transition-all duration-700" 
-                    style={{ 
-                        width: `${(userData.puntos / 500) * 100}%`,
-                        background: 'linear-gradient(90deg, #10b981, #3b82f6)'
-                    }} 
-                />
-              </div>
-              <p className="text-sm mt-2 text-gray-600 font-bold">{userData.puntos} / 500 puntos</p>
+              <button className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-xl font-bold transition mb-3 shadow-md">
+                Cambiar Contraseña
+              </button>
+              <button className="w-full bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-bold transition shadow-md">
+                Eliminar Cuenta
+              </button>
             </div>
-
-            {/* 4. Resumen */}
-            <div className="bg-white rounded-3xl shadow-xl p-6 border-4 border-blue-400/50">
-              <h3 className="text-xl font-black mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-cyan-500 flex items-center gap-2">
-                📊 Resumen de Estadísticas
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-emerald-50 border-b-4 border-emerald-500 rounded-xl shadow-md">
-                  <span className="text-gray-700 font-bold">Nivel Actual</span>
-                  <span className="text-3xl font-black text-emerald-600">{userData.nivel}</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-orange-50 border-b-4 border-orange-500 rounded-xl shadow-md">
-                  <span className="text-gray-700 font-bold">Puntos Totales</span>
-                  <span className="text-3xl font-black text-orange-600">{userData.puntos}</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-blue-50 border-b-4 border-blue-500 rounded-xl shadow-md">
-                  <span className="text-gray-700 font-bold">Insignias</span>
-                  <span className="text-3xl font-black text-blue-600">8</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-amber-50 border-b-4 border-amber-500 rounded-xl shadow-md">
-                  <span className="text-gray-700 font-bold">Racha Activa</span>
-                  <span className="text-3xl font-black text-amber-600">7 🔥</span>
-                </div>
-              </div>
-            </div>
-
-            {/* 5. Logros Recientes */}
-            <div className="bg-white rounded-3xl shadow-xl p-6 border-4 border-orange-400/50">
-              <h3 className="text-xl font-black mb-4 bg-clip-text text-transparent bg-gradient-to-r from-orange-600 to-emerald-600 flex items-center gap-2">
-                🏆 Logros Recientes
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 p-3 bg-orange-50 border-l-4 border-orange-400 rounded-xl shadow-sm hover:shadow-md transition">
-                  <div className="text-3xl">🔬</div>
-                  <div>
-                    <p className="font-bold text-sm text-gray-800">Explorador Celular</p>
-                    <p className="text-xs text-gray-600">Ciencias Naturales - Hace 2 días</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-emerald-50 border-l-4 border-emerald-400 rounded-xl shadow-sm hover:shadow-md transition">
-                  <div className="text-3xl">🌱</div>
-                  <div>
-                    <p className="font-bold text-sm text-gray-800">Guardián Verde</p>
-                    <p className="text-xs text-gray-600">Biología - Hace 3 días</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-blue-50 border-l-4 border-blue-400 rounded-xl shadow-sm hover:shadow-md transition">
-                  <div className="text-3xl">🗺️</div>
-                  <div>
-                    <p className="font-bold text-sm text-gray-800">Explorador Mundial</p>
-                    <p className="text-xs text-gray-600">Geografía - Hace 5 días</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
           </div>
         </div>
       </div>
-    </div>
-  );
-};
 
+      {/* COLUMNA DERECHA: ESTADÍSTICAS */}
+      <div className="lg:col-span-1 space-y-6">
+        
+        {/* 3. Próximo Nivel */}
+        <div className="bg-white rounded-3xl shadow-xl p-6 border-4 border-emerald-400/50">
+          <h3 className="text-xl font-black mb-3 bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 to-blue-600 flex items-center gap-2">
+            <Zap className="text-emerald-500" size={24} /> Progreso de Nivel
+          </h3>
+          <p className="mb-4 text-gray-700 font-semibold">
+            Necesitas <span className="text-emerald-600 font-black">50 puntos</span> más para el nivel {userData.nivel + 1}
+          </p>
+          <div className="w-full bg-gray-200 rounded-full h-5 overflow-hidden shadow-inner">
+            <div 
+                className="h-full rounded-full transition-all duration-700" 
+                style={{ 
+                    width: `${(userData.puntos / 500) * 100}%`,
+                    background: 'linear-gradient(90deg, #10b981, #3b82f6)'
+                }} 
+            />
+          </div>
+          <p className="text-sm mt-2 text-gray-600 font-bold">{userData.puntos} / 500 puntos</p>
+        </div>
+
+        {/* 4. Resumen */}
+        <div className="bg-white rounded-3xl shadow-xl p-6 border-4 border-blue-400/50">
+          <h3 className="text-xl font-black mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-cyan-500 flex items-center gap-2">
+            📊 Resumen de Estadísticas
+          </h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-emerald-50 border-b-4 border-emerald-500 rounded-xl shadow-md">
+              <span className="text-gray-700 font-bold">Nivel Actual</span>
+              <span className="text-3xl font-black text-emerald-600">{userData.nivel}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-orange-50 border-b-4 border-orange-500 rounded-xl shadow-md">
+              <span className="text-gray-700 font-bold">Puntos Totales</span>
+              <span className="text-3xl font-black text-orange-600">{userData.puntos}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-blue-50 border-b-4 border-blue-500 rounded-xl shadow-md">
+              <span className="text-gray-700 font-bold">Insignias</span>
+              <span className="text-3xl font-black text-blue-600">{userData.insignias}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-amber-50 border-b-4 border-amber-500 rounded-xl shadow-md">
+              <span className="text-gray-700 font-bold">Racha Activa</span>
+              <span className="text-3xl font-black text-amber-600">{userData.racha} 🔥</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 5. Logros Recientes */}
+        <div className="bg-white rounded-3xl shadow-xl p-6 border-4 border-orange-400/50">
+          <h3 className="text-xl font-black mb-4 bg-clip-text text-transparent bg-gradient-to-r from-orange-600 to-emerald-600 flex items-center gap-2">
+            🏆 Logros Recientes
+          </h3>
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 p-3 bg-orange-50 border-l-4 border-orange-400 rounded-xl shadow-sm hover:shadow-md transition">
+              <div className="text-3xl">🔬</div>
+              <div>
+                <p className="font-bold text-sm text-gray-800">Explorador Celular</p>
+                <p className="text-xs text-gray-600">Ciencias Naturales - Hace 2 días</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-emerald-50 border-l-4 border-emerald-400 rounded-xl shadow-sm hover:shadow-md transition">
+              <div className="text-3xl">🌱</div>
+              <div>
+                <p className="font-bold text-sm text-gray-800">Guardián Verde</p>
+                <p className="text-xs text-gray-600">Biología - Hace 3 días</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-blue-50 border-l-4 border-blue-400 rounded-xl shadow-sm hover:shadow-md transition">
+              <div className="text-3xl">🗺️</div>
+              <div>
+                <p className="font-bold text-sm text-gray-800">Explorador Mundial</p>
+                <p className="text-xs text-gray-600">Geografía - Hace 5 días</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+);
+};
 export default Perfil;
