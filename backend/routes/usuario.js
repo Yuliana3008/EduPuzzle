@@ -205,4 +205,188 @@ router.put('/perfil', verificarToken, async (req, res) => {
   }
 });
 
+
+
+// OBTENER RECOMPENSAS DEL USUARIO
+router.get('/recompensas', verificarToken, async (req, res) => {
+  try {
+    const { usuarioId } = req;
+
+    // 1. Obtener todas las insignias del catálogo con estado de obtención
+    const insigniasResult = await pool.query(
+      `SELECT 
+        ci.id,
+        ci.nombre,
+        ci.descripcion,
+        ci.emoji,
+        ci.mundo,
+        ci.color,
+        ci.nivel_requerido,
+        ci.puntos_requeridos,
+        CASE WHEN ui.id IS NOT NULL THEN TRUE ELSE FALSE END as obtenido,
+        ui.fecha_obtencion
+       FROM catalogo_insignias ci
+       LEFT JOIN usuario_insignias ui ON ci.id = ui.insignia_id AND ui.usuario_id = $1
+       ORDER BY ci.mundo, ci.nivel_requerido`,
+      [usuarioId]
+    );
+
+    // 2. Obtener trofeos de mundo con progreso
+    const trofeosResult = await pool.query(
+      `SELECT 
+        tm.mundo,
+        tm.completado,
+        tm.fecha_completado,
+        COALESCE(pm.progreso, 0) as progreso
+       FROM trofeos_mundo tm
+       LEFT JOIN progreso_mundos pm ON tm.usuario_id = pm.usuario_id 
+         AND (
+           (tm.mundo = 'Biología' AND pm.mundo_id = 1) OR
+           (tm.mundo = 'Geografía' AND pm.mundo_id = 2) OR
+           (tm.mundo = 'Ciencias Naturales' AND pm.mundo_id = 3)
+         )
+       WHERE tm.usuario_id = $1
+       ORDER BY tm.mundo`,
+      [usuarioId]
+    );
+
+    // Mapear emojis a cada mundo
+    const mundoEmojis = {
+      'Biología': '🌿',
+      'Geografía': '🌍',
+      'Ciencias Naturales': '🔬'
+    };
+
+    const mundoColors = {
+      'Biología': 'emerald',
+      'Geografía': 'blue',
+      'Ciencias Naturales': 'orange'
+    };
+
+    const trofeos = trofeosResult.rows.map(t => ({
+      mundo: t.mundo,
+      emoji: mundoEmojis[t.mundo] || '🏆',
+      color: mundoColors[t.mundo] || 'emerald',
+      completado: t.completado,
+      progreso: t.progreso || 0,
+      fechaCompletado: t.fecha_completado
+    }));
+
+    // 3. Obtener colección especial
+    const coleccionResult = await pool.query(
+      `SELECT pieza_numero, obtenido, fecha_obtencion
+       FROM coleccion_especial
+       WHERE usuario_id = $1
+       ORDER BY pieza_numero`,
+      [usuarioId]
+    );
+
+    const coleccion = coleccionResult.rows.map(p => ({
+      id: p.pieza_numero,
+      nombre: `Pieza ${p.pieza_numero}/5`,
+      emoji: '🧩',
+      obtenido: p.obtenido,
+      fechaObtencion: p.fecha_obtencion
+    }));
+
+    // 4. Calcular estadísticas
+    const totalInsignias = insigniasResult.rows.length;
+    const insigniasObtenidas = insigniasResult.rows.filter(i => i.obtenido).length;
+    const piezasObtenidas = coleccion.filter(p => p.obtenido).length;
+
+    res.json({
+      insignias: insigniasResult.rows,
+      trofeos: trofeos,
+      coleccion: coleccion,
+      estadisticas: {
+        totalInsignias,
+        insigniasObtenidas,
+        piezasObtenidas,
+        totalPiezas: 5
+      }
+    });
+
+  } catch (error) {
+    console.error('Error al obtener recompensas:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// OTORGAR INSIGNIA A USUARIO
+router.post('/recompensas/insignia', verificarToken, async (req, res) => {
+  try {
+    const { usuarioId } = req;
+    const { insigniaId } = req.body;
+
+    // Verificar que la insignia existe
+    const insigniaResult = await pool.query(
+      'SELECT * FROM catalogo_insignias WHERE id = $1',
+      [insigniaId]
+    );
+
+    if (insigniaResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Insignia no encontrada' });
+    }
+
+    // Otorgar insignia (si no la tiene ya)
+    await pool.query(
+      `INSERT INTO usuario_insignias (usuario_id, insignia_id)
+       VALUES ($1, $2)
+       ON CONFLICT (usuario_id, insignia_id) DO NOTHING`,
+      [usuarioId, insigniaId]
+    );
+
+    res.json({ mensaje: 'Insignia otorgada correctamente' });
+
+  } catch (error) {
+    console.error('Error al otorgar insignia:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// COMPLETAR MUNDO (Otorgar trofeo)
+router.post('/recompensas/trofeo', verificarToken, async (req, res) => {
+  try {
+    const { usuarioId } = req;
+    const { mundo } = req.body;
+
+    await pool.query(
+      `UPDATE trofeos_mundo 
+       SET completado = TRUE, fecha_completado = CURRENT_TIMESTAMP
+       WHERE usuario_id = $1 AND mundo = $2`,
+      [usuarioId, mundo]
+    );
+
+    res.json({ mensaje: 'Trofeo otorgado correctamente' });
+
+  } catch (error) {
+    console.error('Error al otorgar trofeo:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// OBTENER PIEZA DE COLECCIÓN
+router.post('/recompensas/pieza', verificarToken, async (req, res) => {
+  try {
+    const { usuarioId } = req;
+    const { piezaNumero } = req.body;
+
+    if (piezaNumero < 1 || piezaNumero > 5) {
+      return res.status(400).json({ error: 'Número de pieza inválido' });
+    }
+
+    await pool.query(
+      `UPDATE coleccion_especial 
+       SET obtenido = TRUE, fecha_obtencion = CURRENT_TIMESTAMP
+       WHERE usuario_id = $1 AND pieza_numero = $2`,
+      [usuarioId, piezaNumero]
+    );
+
+    res.json({ mensaje: 'Pieza obtenida correctamente' });
+
+  } catch (error) {
+    console.error('Error al obtener pieza:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
 module.exports = router;

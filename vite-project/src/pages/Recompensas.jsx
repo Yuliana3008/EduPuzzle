@@ -1,63 +1,86 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Trophy, Award, Star, Lock, Zap, Brain, Map } from 'lucide-react';
-
-// Mock de useNavigate para que el componente sea ejecutable (si es necesario)
-// const useNavigate = () => (path) => { console.log("Navigating to:", path); };
+import { ArrowLeft, Trophy, Award, Star, Lock, Zap, Brain, Map, Loader } from 'lucide-react';
 
 const Recompensas = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // --- Datos de Recompensas (Añadiendo colores temáticos) ---
-  const [recompensasObtenidas] = useState([
-    { id: 1, nombre: 'Explorador Celular', emoji: '🔬', descripcion: 'Completaste el nivel de La Célula', mundo: 'Biología', color: 'emerald', obtenido: true },
-    { id: 2, nombre: 'Guardián Verde', emoji: '🌱', descripcion: 'Dominaste la Fotosíntesis', mundo: 'Biología', color: 'emerald', obtenido: true },
-    { id: 3, nombre: 'Protector Natural', emoji: '🌊', descripcion: 'Entendiste los Ecosistemas', mundo: 'Biología', color: 'emerald', obtenido: false },
-    { id: 4, nombre: 'Maestro del ADN', emoji: '🧬', descripcion: 'Completaste ADN y Genética', mundo: 'Biología', color: 'emerald', obtenido: false },
-    { id: 5, nombre: 'Explorador Mundial', emoji: '🗺️', descripcion: 'Conociste los Continentes', mundo: 'Geografía', color: 'blue', obtenido: true },
-    { id: 6, nombre: 'Experto en Climas', emoji: '⛅', descripcion: 'Dominaste los climas', mundo: 'Geografía', color: 'blue', obtenido: false },
-    { id: 7, nombre: 'Científico Junior', emoji: '⚗️', descripcion: 'Aprendiste los estados de la materia', mundo: 'Ciencias', color: 'orange', obtenido: false },
-  ]);
+  const [recompensasObtenidas, setRecompensasObtenidas] = useState([]);
+  const [trofeosMundo, setTrofeosMundo] = useState([]);
+  const [coleccionEspecial, setColeccionEspecial] = useState([]);
+  const [estadisticas, setEstadisticas] = useState({
+    totalInsignias: 0,
+    insigniasObtenidas: 0,
+    piezasObtenidas: 0,
+    totalPiezas: 5
+  });
 
-  const [trofeosMundo] = useState([
-    { mundo: 'Biología', emoji: '🌿', color: 'emerald', completado: true, progreso: 100 },
-    { mundo: 'Geografía', emoji: '🌍', color: 'blue', completado: false, progreso: 25 },
-    { mundo: 'Ciencias Naturales', emoji: '🔬', color: 'orange', completado: false, progreso: 0 },
-  ]);
-
-  const [coleccionEspecial] = useState([
-    { id: 1, nombre: 'Pieza 1/5', emoji: '🧩', obtenido: true },
-    { id: 2, nombre: 'Pieza 2/5', emoji: '🧩', obtenido: true },
-    { id: 3, nombre: 'Pieza 3/5', emoji: '🧩', obtenido: false },
-    { id: 4, nombre: 'Pieza 4/5', emoji: '🧩', obtenido: false },
-    { id: 5, nombre: 'Pieza 5/5', emoji: '🧩', obtenido: false },
-  ]);
-
-  const insigniasObtenidas = recompensasObtenidas.filter(r => r.obtenido).length;
-  const totalInsignias = recompensasObtenidas.length;
-  
-  // Colores temáticos extraídos del componente Perfil
   const themeColors = {
-    emerald: ['#10b981', '#059669', '#34d399', '#6ee7b7'], // Biología
-    blue: ['#3b82f6', '#2563eb', '#60a5fa', '#06b6d4'], // Geografía
-    orange: ['#f59e0b', '#ea580c', '#fbbf24', '#fb923c'] // Ciencias
+    emerald: ['#10b981', '#059669', '#34d399', '#6ee7b7'],
+    blue: ['#3b82f6', '#2563eb', '#60a5fa', '#06b6d4'],
+    orange: ['#f59e0b', '#ea580c', '#fbbf24', '#fb923c']
   };
   
-  // Clases de Tailwind para aplicar colores fácilmente
   const colorMap = {
-      emerald: { main: 'emerald', border: 'border-emerald-500', bg: 'bg-emerald-500', text: 'text-emerald-600', light: 'bg-emerald-50' },
-      blue: { main: 'blue', border: 'border-blue-500', bg: 'bg-blue-500', text: 'text-blue-600', light: 'bg-blue-50' },
-      orange: { main: 'orange', border: 'border-orange-500', bg: 'bg-orange-500', text: 'text-orange-600', light: 'bg-orange-50' },
-      purple: { main: 'purple', border: 'border-purple-500', bg: 'bg-purple-500', text: 'text-purple-600', light: 'bg-purple-50' },
-      default: { main: 'gray', border: 'border-gray-500', bg: 'bg-gray-500', text: 'text-gray-600', light: 'bg-gray-50' },
+    emerald: { main: 'emerald', border: 'border-emerald-500', bg: 'bg-emerald-500', text: 'text-emerald-600', light: 'bg-emerald-50' },
+    blue: { main: 'blue', border: 'border-blue-500', bg: 'bg-blue-500', text: 'text-blue-600', light: 'bg-blue-50' },
+    orange: { main: 'orange', border: 'border-orange-500', bg: 'bg-orange-500', text: 'text-orange-600', light: 'bg-orange-50' },
+    purple: { main: 'purple', border: 'border-purple-500', bg: 'bg-purple-500', text: 'text-purple-600', light: 'bg-purple-50' },
+    default: { main: 'gray', border: 'border-gray-500', bg: 'bg-gray-500', text: 'text-gray-600', light: 'bg-gray-50' },
   };
   
   const getColorClasses = (colorName) => colorMap[colorName] || colorMap.default;
 
-  // --- HELPERS DE DISEÑO (Iconos flotantes y Puzzle) ---
-  const backgroundIcons = [
-    'leaf', 'dna', 'globe', 'mountain', 'atom', 'microscope'
-  ];
+  // CARGAR RECOMPENSAS DESDE LA BD
+  useEffect(() => {
+    const fetchRecompensas = async () => {
+      const token = localStorage.getItem('userToken');
+      
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      try {
+        const response = await fetch('http://localhost:5000/api/usuario/recompensas', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            localStorage.removeItem('userToken');
+            localStorage.removeItem('username');
+            navigate('/login');
+            return;
+          }
+          throw new Error('Error al cargar recompensas');
+        }
+
+        const data = await response.json();
+        
+        setRecompensasObtenidas(data.insignias);
+        setTrofeosMundo(data.trofeos);
+        setColeccionEspecial(data.coleccion);
+        setEstadisticas(data.estadisticas);
+        setLoading(false);
+
+      } catch (err) {
+        console.error('Error fetching rewards:', err);
+        setError(err.message);
+        setLoading(false);
+      }
+    };
+
+    fetchRecompensas();
+  }, [navigate]);
+
+  const backgroundIcons = ['leaf', 'dna', 'globe', 'mountain', 'atom', 'microscope'];
 
   const ThematicIcon = ({ type, x, y, size, rotation }) => {
     const icons = {
@@ -131,7 +154,37 @@ const Recompensas = () => {
       </svg>
     );
   };
-  // --- FIN HELPERS DE DISEÑO ---
+
+  // PANTALLA DE CARGA
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-900 via-blue-900 to-orange-900">
+        <div className="bg-white rounded-3xl shadow-2xl p-12 text-center">
+          <Loader className="animate-spin text-blue-600 mx-auto mb-4" size={48} />
+          <h2 className="text-2xl font-black text-gray-800">Cargando recompensas...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  // PANTALLA DE ERROR
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-900 via-blue-900 to-orange-900">
+        <div className="bg-white rounded-3xl shadow-2xl p-12 text-center max-w-md">
+          <div className="text-red-600 text-5xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-black text-gray-800 mb-4">Error al cargar recompensas</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-emerald-900 via-blue-900 to-orange-900 p-4 font-sans">
@@ -210,7 +263,7 @@ const Recompensas = () => {
           Volver al Dashboard
         </button>
 
-        {/* Banner de Recompensas (Estilo Perfil Banner) */}
+        {/* Banner de Recompensas */}
         <div className="bg-white rounded-3xl p-8 mb-8 shadow-2xl relative overflow-hidden">
           
           {/* Fondo de Gradiente Temático */}
@@ -227,16 +280,16 @@ const Recompensas = () => {
             </div>
             <div className="text-center bg-white/20 rounded-xl p-5 shadow-inner border border-white">
               <Trophy size={48} className="mx-auto mb-2 text-white drop-shadow-md" />
-              <p className="text-3xl font-black text-white">{insigniasObtenidas}/{totalInsignias}</p>
+              <p className="text-3xl font-black text-white">{estadisticas.insigniasObtenidas}/{estadisticas.totalInsignias}</p>
               <p className="text-sm opacity-90">Insignias Obtenidas</p>
             </div>
           </div>
         </div>
 
-        {/* Contenedor de Secciones (2 Columnas) */}
+        {/* Contenedor de Secciones */}
         <div className="grid lg:grid-cols-3 gap-6">
           
-          {/* COLUMNA DERECHA (2/3): Insignias por Nivel */}
+          {/* COLUMNA DERECHA: Insignias por Nivel */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-3xl shadow-xl p-8 transition-all duration-300 hover:shadow-blue-500/30">
               <h2 className="text-2xl font-black mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-cyan-500 flex items-center gap-3">
@@ -268,9 +321,9 @@ const Recompensas = () => {
                       </div>
                       <h3 className="font-bold text-gray-800 mb-1">{insignia.nombre}</h3>
                       <p className="text-sm text-gray-600 mb-2">{insignia.descripcion}</p>
-                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                        insignia.obtenido 
-                          ? `${colors.bg.replace('500', '100')} ${colors.text}` 
+<span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                        insignia.obtenido
+                          ? `${colors.bg.replace('500', '100')} ${colors.text}`
                           : 'bg-gray-200 text-gray-600'
                       }`}>
                         {insignia.mundo}
@@ -282,7 +335,7 @@ const Recompensas = () => {
             </div>
           </div>
           
-          {/* COLUMNA IZQUIERDA (1/3): Trofeos y Colección */}
+          {/* COLUMNA IZQUIERDA: Trofeos y Colección */}
           <div className="lg:col-span-1 space-y-6">
 
             {/* Trofeos de Mundo */}
@@ -355,14 +408,14 @@ const Recompensas = () => {
                 ))}
               </div>
 
-              {coleccionEspecial.every(p => p.obtenido) ? (
+              {estadisticas.piezasObtenidas === 5 ? (
                 <div className="mt-6 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl p-4 text-center">
                   <h3 className="text-lg font-bold">¡Colección Completa! 🎉</h3>
                   <p className="text-sm">¡Has revelado el premio secreto!</p>
                 </div>
               ) : (
                 <p className="mt-4 text-center text-sm font-semibold text-gray-700">
-                    Piezas Obtenidas: {coleccionEspecial.filter(p => p.obtenido).length} / 5
+                    Piezas Obtenidas: {estadisticas.piezasObtenidas} / 5
                 </p>
               )}
             </div>
