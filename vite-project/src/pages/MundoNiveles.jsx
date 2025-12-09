@@ -1,22 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Lock, CheckCircle, Star, Play, Trophy, Map, Brain } from 'lucide-react';
+import { ArrowLeft, Lock, CheckCircle, Star, Play, Trophy, Loader } from 'lucide-react';
 
-// --- MOCKS DE DATOS Y ESTILOS GLOBALES ---
-
-// Colores temáticos: Biología (verde), Geografía (azul), Ciencias Naturales (naranja/amarillo)
 const themeColors = {
-  emerald: ['#10b981', '#059669', '#34d399', '#6ee7b7'], // Biología
-  blue: ['#3b82f6', '#2563eb', '#60a5fa', '#06b6d4'], // Geografía
-  orange: ['#f59e0b', '#ea580c', '#fbbf24', '#fb923c'] // Ciencias
+  emerald: ['#10b981', '#059669', '#34d399', '#6ee7b7'],
+  blue: ['#3b82f6', '#2563eb', '#60a5fa', '#06b6d4'],
+  orange: ['#f59e0b', '#ea580c', '#fbbf24', '#fb923c']
 };
 
-// --- HELPERS DE DISEÑO (Iconos flotantes y Puzzle) ---
-const backgroundIcons = [
-  'leaf', 'dna', 'globe', 'mountain', 'atom', 'microscope'
-];
+const backgroundIcons = ['leaf', 'dna', 'globe', 'mountain', 'atom', 'microscope'];
 
-// Iconos SVG temáticos para el fondo
 const ThematicIcon = ({ type, x, y, size, rotation }) => {
   const icons = {
     leaf: (<path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8zm0-14c-3.3 0-6 2.7-6 6h2c0-2.2 1.8-4 4-4V6z" fill="#10b981" opacity="0.3"/>),
@@ -90,56 +83,58 @@ const PuzzlePiece = ({ color, size = 100, topTab = false, rightTab = false, bott
   );
 };
 
-// --- COMPONENTE PRINCIPAL ---
-
 const MundoNiveles = () => {
   const { mundoId } = useParams();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [mundo, setMundo] = useState(null);
+  const [niveles, setNiveles] = useState([]);
 
-  const mundosData = {
-    1: {
-      nombre: 'Biología',
-      emoji: '🌿',
-      color: 'emerald',
-      descripcion: 'Explora el fascinante mundo de los seres vivos',
-      niveles: [
-        { id: 1, nombre: 'La Célula Animal', completado: true, estrellas: 3, desbloqueado: true, puntos: 50 },
-        { id: 2, nombre: 'Fotosíntesis', completado: true, estrellas: 3, desbloqueado: true, puntos: 50 },
-        { id: 3, nombre: 'Ecosistemas', completado: false, estrellas: 0, desbloqueado: true, puntos: 0 },
-        { id: 4, nombre: 'ADN y Genética', completado: false, estrellas: 0, desbloqueado: false, puntos: 0 },
-        { id: 5, nombre: 'Evolución', completado: false, estrellas: 0, desbloqueado: false, puntos: 0 },
-      ]
-    },
-    2: {
-      nombre: 'Geografía',
-      emoji: '🌍',
-      color: 'blue',
-      descripcion: 'Descubre los secretos de nuestro planeta',
-      niveles: [
-        { id: 1, nombre: 'Continentes', completado: true, estrellas: 2, desbloqueado: true, puntos: 40 },
-        { id: 2, nombre: 'Climas del Mundo', completado: false, estrellas: 0, desbloqueado: true, puntos: 0 },
-        { id: 3, nombre: 'Relieves', completado: false, estrellas: 0, desbloqueado: false, puntos: 0 },
-        { id: 4, nombre: 'Capitales', completado: false, estrellas: 0, desbloqueado: false, puntos: 0 },
-      ]
-    },
-    3: {
-      nombre: 'Ciencias Naturales',
-      emoji: '🔬',
-      color: 'orange',
-      descripcion: 'Experimenta con física y química',
-      niveles: [
-        { id: 1, nombre: 'Estados de la Materia', completado: false, estrellas: 0, desbloqueado: true, puntos: 0 },
-        { id: 2, nombre: 'Fuerzas y Movimiento', completado: false, estrellas: 0, desbloqueado: false, puntos: 0 },
-        { id: 3, nombre: 'Reacciones Químicas', completado: false, estrellas: 0, desbloqueado: false, puntos: 0 },
-      ]
-    }
-  };
+  // CARGAR NIVELES DEL MUNDO DESDE LA BD
+  useEffect(() => {
+    const fetchNiveles = async () => {
+      const token = localStorage.getItem('userToken');
+      
+      if (!token) {
+        navigate('/login');
+        return;
+      }
 
-  const mundo = mundosData[mundoId];
+      try {
+        const response = await fetch(`http://localhost:5000/api/usuario/mundos/${mundoId}/niveles`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-  if (!mundo) {
-    return <div className="p-8 text-white">Mundo no encontrado</div>;
-  }
+        if (!response.ok) {
+          if (response.status === 401) {
+            localStorage.removeItem('userToken');
+            localStorage.removeItem('username');
+            navigate('/login');
+            return;
+          }
+          throw new Error('Error al cargar niveles');
+        }
+
+        const data = await response.json();
+        
+        setMundo(data.mundo);
+        setNiveles(data.niveles);
+        setLoading(false);
+
+      } catch (err) {
+        console.error('Error fetching levels:', err);
+        setError(err.message);
+        setLoading(false);
+      }
+    };
+
+    fetchNiveles();
+  }, [mundoId, navigate]);
 
   // Clases de Tailwind para aplicar colores fácilmente
   const colorClasses = {
@@ -166,10 +161,38 @@ const MundoNiveles = () => {
     }
   };
 
-  const colors = colorClasses[mundo.color];
+  // PANTALLA DE CARGA
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-900 via-blue-900 to-orange-900">
+        <div className="bg-white rounded-3xl shadow-2xl p-12 text-center">
+          <Loader className="animate-spin text-blue-600 mx-auto mb-4" size={48} />
+          <h2 className="text-2xl font-black text-gray-800">Cargando niveles...</h2>
+        </div>
+      </div>
+    );
+  }
 
-  const nivelesCompletados = mundo.niveles.filter(n => n.completado).length;
-  const progresoMundo = Math.round((nivelesCompletados / mundo.niveles.length) * 100);
+  // PANTALLA DE ERROR
+  if (error || !mundo) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-900 via-blue-900 to-orange-900">
+        <div className="bg-white rounded-3xl shadow-2xl p-12 text-center max-w-md">
+          <div className="text-red-600 text-5xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-black text-gray-800 mb-4">Mundo no encontrado</h2>
+          <p className="text-gray-600 mb-6">{error || 'Este mundo no existe'}</p>
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition"
+          >
+            Volver al Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const colors = colorClasses[mundo.color];
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-emerald-900 via-blue-900 to-orange-900 p-4 font-sans">
@@ -248,7 +271,7 @@ const MundoNiveles = () => {
           Volver al Dashboard
         </button>
 
-        {/* Banner del Mundo (Tarjeta Blanca con Gradiente de Color del Mundo) */}
+        {/* Banner del Mundo */}
         <div className="bg-white rounded-3xl p-8 mb-8 shadow-2xl relative overflow-hidden border-4 border-gray-100">
           
           {/* Fondo de Gradiente Temático del Mundo */}
@@ -262,10 +285,10 @@ const MundoNiveles = () => {
               
               <div className="flex items-center gap-4">
                 <div className="bg-white/20 px-4 py-2 rounded-full text-sm font-bold">
-                  <span className="font-extrabold">{nivelesCompletados}/{mundo.niveles.length} Niveles</span>
+                  <span className="font-extrabold">{mundo.nivelesCompletados}/{mundo.totalNiveles} Niveles</span>
                 </div>
                 <div className="bg-white/20 px-4 py-2 rounded-full text-sm font-bold">
-                  <span className="font-extrabold">{progresoMundo}% Completado</span>
+                  <span className="font-extrabold">{mundo.progreso}% Completado</span>
                 </div>
               </div>
             </div>
@@ -275,14 +298,14 @@ const MundoNiveles = () => {
           <div className="w-full bg-white bg-opacity-30 rounded-full h-3 mt-6 overflow-hidden relative" style={{ zIndex: 2 }}>
             <div
               className={`bg-white h-full rounded-full transition-all duration-500`}
-              style={{ width: `${progresoMundo}%` }}
+              style={{ width: `${mundo.progreso}%` }}
             />
           </div>
         </div>
 
         {/* Lista de Niveles */}
         <div className="grid gap-6">
-          {mundo.niveles.map((nivel) => (
+          {niveles.map((nivel) => (
             <div
               key={nivel.id}
               onClick={() => nivel.desbloqueado && navigate(`/mundos/${mundoId}/nivel/${nivel.id}`)}
@@ -299,10 +322,10 @@ const MundoNiveles = () => {
                   {/* Icono de Estado / Número del nivel */}
                   <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-black shadow-lg ${
                     nivel.completado
-                      ? 'bg-emerald-500' // Verde para completado
+                      ? 'bg-emerald-500'
                       : nivel.desbloqueado
-                      ? colors.bg // Color del mundo para desbloqueado
-                      : 'bg-gray-500' // Gris para bloqueado
+                      ? colors.bg
+                      : 'bg-gray-500'
                   }`}>
                     {nivel.completado ? (
                       <CheckCircle size={28} />
@@ -315,6 +338,9 @@ const MundoNiveles = () => {
 
                   <div>
                     <h3 className="text-2xl font-black text-gray-800">{nivel.nombre}</h3>
+                    {nivel.descripcion && (
+                      <p className="text-sm text-gray-600 mt-1">{nivel.descripcion}</p>
+                    )}
                     <div className="flex items-center gap-3 mt-2">
                       {nivel.completado ? (
                         <>
@@ -331,7 +357,11 @@ const MundoNiveles = () => {
                             ✓ Ganado • {nivel.puntos} pts
                           </span>
                         </>
-                      ) : !nivel.desbloqueado && (
+                      ) : nivel.desbloqueado ? (
+                        <span className="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-bold">
+                          💎 {nivel.puntos} puntos disponibles
+                        </span>
+                      ) : (
                         <span className="text-sm bg-gray-100 text-gray-600 px-3 py-1 rounded-full font-semibold">
                           🔒 Completa el nivel anterior
                         </span>
@@ -361,7 +391,7 @@ const MundoNiveles = () => {
         </div>
 
         {/* Recompensa del Mundo (si está al 100%) */}
-        {progresoMundo === 100 && (
+        {mundo.progreso === 100 && (
           <div className="mt-8 bg-white rounded-3xl p-8 shadow-2xl relative overflow-hidden border-4 border-yellow-500/80">
             <div className={`absolute inset-0 bg-gradient-to-r from-yellow-500 to-orange-500 opacity-90 rounded-[1.25rem]`} style={{ zIndex: 1 }}></div>
             <div className="relative flex items-center gap-4 text-white" style={{ zIndex: 2 }}>

@@ -1,22 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, Clock, Target, Flame, Award, Calendar, Zap, Brain, Map } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Clock, Target, Flame, Award, Calendar, Map, Loader } from 'lucide-react';
 
-// --- MOCKS DE DATOS Y ESTILOS GLOBALES ---
-
-// Colores temáticos: Biología (verde), Geografía (azul), Ciencias Naturales (naranja/amarillo)
 const themeColors = {
-  emerald: ['#10b981', '#059669', '#34d399', '#6ee7b7'], // Biología
-  blue: ['#3b82f6', '#2563eb', '#60a5fa', '#06b6d4'], // Geografía
-  orange: ['#f59e0b', '#ea580c', '#fbbf24', '#fb923c'] // Ciencias
+  emerald: ['#10b981', '#059669', '#34d399', '#6ee7b7'],
+  blue: ['#3b82f6', '#2563eb', '#60a5fa', '#06b6d4'],
+  orange: ['#f59e0b', '#ea580c', '#fbbf24', '#fb923c']
 };
 
-// --- HELPERS DE DISEÑO (Iconos flotantes y Puzzle) ---
-const backgroundIcons = [
-  'leaf', 'dna', 'globe', 'mountain', 'atom', 'microscope'
-];
+const backgroundIcons = ['leaf', 'dna', 'globe', 'mountain', 'atom', 'microscope'];
 
-// Iconos SVG temáticos para el fondo
 const ThematicIcon = ({ type, x, y, size, rotation }) => {
   const icons = {
     leaf: (<path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8zm0-14c-3.3 0-6 2.7-6 6h2c0-2.2 1.8-4 4-4V6z" fill="#10b981" opacity="0.3"/>),
@@ -90,36 +83,71 @@ const PuzzlePiece = ({ color, size = 100, topTab = false, rightTab = false, bott
   );
 };
 
-// --- COMPONENTE PRINCIPAL ---
-
 const Estadisticas = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const estadisticas = {
-    nivelesCompletados: 7,
+  const [estadisticas, setEstadisticas] = useState({
+    nivelesCompletados: 0,
     nivelesTotal: 12,
-    tiempoTotal: 3600, // segundos
-    promedioTiempo: 514, // segundos por nivel
-    puntajeTotal: 450,
-    racha: 7,
-    mejorRacha: 12,
-    insignias: 8,
-    mundoFavorito: 'Biología',
-  };
+    tiempoTotal: 0,
+    promedioTiempo: 0,
+    puntajeTotal: 0,
+    racha: 0,
+    mejorRacha: 0,
+    insignias: 0,
+    mundoFavorito: 'Biología'
+  });
 
-  const historialNiveles = [
-    { nivel: 'La Célula', mundoColor: 'emerald', tiempo: '8:30', movimientos: 45, estrellas: 3, fecha: '2024-12-01' },
-    { nivel: 'Fotosíntesis', mundoColor: 'emerald', tiempo: '10:15', movimientos: 52, estrellas: 3, fecha: '2024-12-01' },
-    { nivel: 'Continentes', mundoColor: 'blue', tiempo: '7:45', movimientos: 38, estrellas: 2, fecha: '2024-12-02' },
-    { nivel: 'La Célula (repetido)', mundoColor: 'emerald', tiempo: '6:20', movimientos: 32, estrellas: 3, fecha: '2024-12-03' },
-    { nivel: 'Geología', mundoColor: 'orange', tiempo: '12:00', movimientos: 60, estrellas: 1, fecha: '2024-12-04' },
-  ];
+  const [historialNiveles, setHistorialNiveles] = useState([]);
+  const [progresoMundos, setProgresoMundos] = useState([]);
 
-  const progresoMundos = [
-    { mundo: 'Biología', color: 'emerald', completados: 2, total: 5, porcentaje: 40 },
-    { mundo: 'Geografía', color: 'blue', completados: 1, total: 4, porcentaje: 25 },
-    { mundo: 'Ciencias Naturales', color: 'orange', completados: 0, total: 3, porcentaje: 0 },
-  ];
+  // CARGAR ESTADÍSTICAS DESDE LA BD
+  useEffect(() => {
+    const fetchEstadisticas = async () => {
+      const token = localStorage.getItem('userToken');
+      
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      try {
+        const response = await fetch('http://localhost:5000/api/usuario/estadisticas', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            localStorage.removeItem('userToken');
+            localStorage.removeItem('username');
+            navigate('/login');
+            return;
+          }
+          throw new Error('Error al cargar estadísticas');
+        }
+
+        const data = await response.json();
+        
+        setEstadisticas(data.estadisticas);
+        setHistorialNiveles(data.historialNiveles);
+        setProgresoMundos(data.progresoMundos);
+        setLoading(false);
+
+      } catch (err) {
+        console.error('Error fetching statistics:', err);
+        setError(err.message);
+        setLoading(false);
+      }
+    };
+
+    fetchEstadisticas();
+  }, [navigate]);
 
   const formatearTiempo = (segundos) => {
     const horas = Math.floor(segundos / 3600);
@@ -140,6 +168,37 @@ const Estadisticas = () => {
     };
     return map[colorName]?.[type] || map.emerald[type];
   };
+
+  // PANTALLA DE CARGA
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-900 via-blue-900 to-orange-900">
+        <div className="bg-white rounded-3xl shadow-2xl p-12 text-center">
+          <Loader className="animate-spin text-blue-600 mx-auto mb-4" size={48} />
+          <h2 className="text-2xl font-black text-gray-800">Cargando estadísticas...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  // PANTALLA DE ERROR
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-900 via-blue-900 to-orange-900">
+        <div className="bg-white rounded-3xl shadow-2xl p-12 text-center max-w-md">
+          <div className="text-red-600 text-5xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-black text-gray-800 mb-4">Error al cargar estadísticas</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-emerald-900 via-blue-900 to-orange-900 p-4 font-sans">
@@ -218,7 +277,7 @@ const Estadisticas = () => {
           Volver al Dashboard
         </button>
 
-        {/* Banner de Estadísticas (Estilo Perfil Banner) */}
+        {/* Banner de Estadísticas */}
         <div className="bg-white rounded-3xl p-8 mb-8 shadow-2xl relative overflow-hidden">
           
           {/* Fondo de Gradiente Temático */}
@@ -276,156 +335,176 @@ const Estadisticas = () => {
             </h2>
             <div className="space-y-6">
               {progresoMundos.map((mundo, idx) => {
-                const colorClass = getColorClass(mundo.color, 'bg');
-                const textClass = getColorClass(mundo.color, 'text');
-                return (
-                  <div key={idx} className="p-4 bg-gray-50 rounded-xl border-l-4 border-gray-200">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold text-gray-800">{mundo.mundo}</span>
-                      <span className={`text-lg font-black ${textClass}`}>
-                        {mundo.porcentaje}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
-                      <div
-                        className={`${colorClass} h-full rounded-full transition-all`}
-                        style={{ width: `${mundo.porcentaje}%` }}
-                      />
-                    </div>
-                    <span className="text-xs text-gray-600 mt-1 block">
-                      {mundo.completados} de {mundo.total} niveles completados.
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+                const colorClass = getColorClass(mundo.color, 'bg'); const textClass = getColorClass(mundo.color, 'text');
+            return (
+              <div key={idx} className="p-4 bg-gray-50 rounded-xl border-l-4 border-gray-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-bold text-gray-800">{mundo.mundo}</span>
+                  <span className={`text-lg font-black ${textClass}`}>
+                    {mundo.porcentaje}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
+                  <div
+                    className={`${colorClass} h-full rounded-full transition-all`}
+                    style={{ width: `${mundo.porcentaje}%` }}
+                  />
+                </div>
+                <span className="text-xs text-gray-600 mt-1 block">
+                  {mundo.completados} de {mundo.total} niveles completados.
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
-          {/* COLUMNA DERECHA: Historial de Niveles */}
-          <div className="bg-white rounded-3xl shadow-xl p-8 transition-all duration-300 hover:shadow-orange-500/30">
-            <h2 className="text-2xl font-black mb-6 bg-clip-text text-transparent bg-gradient-to-r from-orange-600 to-purple-500 flex items-center gap-3">
-              <Calendar className="text-orange-500" size={28} />
-              Historial de Niveles
-            </h2>
-            <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-md">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Nivel</th>
-                    <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Tiempo</th>
-                    <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 hidden sm:table-cell">Mov.</th>
-                    <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Estrellas</th>
+      {/* COLUMNA DERECHA: Historial de Niveles */}
+      <div className="bg-white rounded-3xl shadow-xl p-8 transition-all duration-300 hover:shadow-orange-500/30">
+        <h2 className="text-2xl font-black mb-6 bg-clip-text text-transparent bg-gradient-to-r from-orange-600 to-purple-500 flex items-center gap-3">
+          <Calendar className="text-orange-500" size={28} />
+          Historial de Niveles
+        </h2>
+        
+        {historialNiveles.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <p className="text-lg font-semibold">¡Aún no has completado niveles!</p>
+            <p className="text-sm mt-2">Comienza a jugar para ver tu progreso aquí.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-md">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Nivel</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Tiempo</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 hidden sm:table-cell">Mov.</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Estrellas</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {historialNiveles.map((nivel, idx) => (
+                  <tr key={idx} className={`hover:bg-gray-50 border-l-4 ${getColorClass(nivel.mundoColor, 'border')}`}>
+                    <td className="px-4 py-3 font-semibold text-gray-800 text-sm">
+                      {nivel.nivel}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 text-sm">{nivel.tiempo}</td>
+                    <td className="px-4 py-3 text-gray-600 text-sm hidden sm:table-cell">{nivel.movimientos}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1">
+                        {[...Array(3)].map((_, i) => (
+                          <span key={i} className={i < nivel.estrellas ? 'text-yellow-500' : 'text-gray-300'}>
+                            ⭐
+                          </span>
+                        ))}
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {historialNiveles.map((nivel, idx) => {
-                    const colorClass = getColorClass(nivel.mundoColor, 'border');
-                    return (
-                      <tr key={idx} className="hover:bg-gray-50 border-l-4" style={{ borderColor: getColorClass(nivel.mundoColor, 'border').split('-')[1] }}>
-                        <td className="px-4 py-3 font-semibold text-gray-800 text-sm">
-                          {nivel.nivel}
-                        </td>
-                        <td className="px-4 py-3 text-gray-600 text-sm">{nivel.tiempo}</td>
-                        <td className="px-4 py-3 text-gray-600 text-sm hidden sm:table-cell">{nivel.movimientos}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-1">
-                            {[...Array(3)].map((_, i) => (
-                              <span key={i} className={i < nivel.estrellas ? 'text-yellow-500' : 'text-gray-300'}>
-                                ⭐
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
-
-        {/* Logros y Objetivos (Parte Inferior) */}
-        <div className="grid lg:grid-cols-2 gap-6 mt-6">
-          
-          {/* Logros Destacados */}
-          <div className="bg-white rounded-3xl shadow-xl p-8 border-4 border-purple-400/50">
-            <h2 className="text-2xl font-black mb-4 bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-500 flex items-center gap-3">
-              <Award className="text-purple-500" size={28} />
-              Mejores Marcas
-            </h2>
-            <div className="space-y-4">
-              <div className="flex items-center gap-4 p-4 bg-yellow-50 border-l-4 border-yellow-500 rounded-xl shadow-sm">
-                <div className="text-3xl">🥇</div>
-                <div>
-                  <p className="font-bold text-gray-800">Mejor Racha Histórica</p>
-                  <p className="text-xl font-black text-yellow-600">{estadisticas.mejorRacha} días</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-xl shadow-sm">
-                <div className="text-3xl">🧠</div>
-                <div>
-                  <p className="font-bold text-gray-800">Mundo Más Explorado</p>
-                  <p className="text-xl font-black text-emerald-600">{estadisticas.mundoFavorito}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-xl shadow-sm">
-                <div className="text-3xl">⏱️</div>
-                <div>
-                  <p className="font-bold text-gray-800">Velocidad Promedio</p>
-                  <p className="text-xl font-black text-blue-600">{Math.floor(estadisticas.promedioTiempo / 60)}:{(estadisticas.promedioTiempo % 60).toString().padStart(2, '0')}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Objetivos */}
-          <div className="bg-white rounded-3xl shadow-xl p-8 border-4 border-blue-400/50">
-            <h2 className="text-2xl font-black mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-orange-500 flex items-center gap-3">
-              <Target className="text-blue-500" size={28} />
-              Objetivos de la Semana
-            </h2>
-            <div className="space-y-5">
-              
-              {/* Objetivo 1 */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-bold text-gray-700">Completar 10 niveles</span>
-                  <span className="text-sm font-black text-emerald-600">7/10</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                  <div className="bg-emerald-500 h-full rounded-full" style={{ width: '70%' }} />
-                </div>
-              </div>
-              
-              {/* Objetivo 2 */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-bold text-gray-700">Alcanzar racha de 14 días</span>
-                  <span className="text-sm font-black text-orange-600">7/14</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                  <div className="bg-orange-500 h-full rounded-full" style={{ width: '50%' }} />
-                </div>
-              </div>
-
-              {/* Objetivo 3 */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-bold text-gray-700">Obtener 15 insignias</span>
-                  <span className="text-sm font-black text-purple-600">8/15</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                  <div className="bg-purple-500 h-full rounded-full" style={{ width: '53%' }} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
+        )}
       </div>
     </div>
-  );
-};
 
+    {/* Logros y Objetivos (Parte Inferior) */}
+    <div className="grid lg:grid-cols-2 gap-6 mt-6">
+      
+      {/* Logros Destacados */}
+      <div className="bg-white rounded-3xl shadow-xl p-8 border-4 border-purple-400/50">
+        <h2 className="text-2xl font-black mb-4 bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-500 flex items-center gap-3">
+          <Award className="text-purple-500" size={28} />
+          Mejores Marcas
+        </h2>
+        <div className="space-y-4">
+          <div className="flex items-center gap-4 p-4 bg-yellow-50 border-l-4 border-yellow-500 rounded-xl shadow-sm">
+            <div className="text-3xl">🥇</div>
+            <div>
+              <p className="font-bold text-gray-800">Mejor Racha Histórica</p>
+              <p className="text-xl font-black text-yellow-600">{estadisticas.mejorRacha} días</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-xl shadow-sm">
+            <div className="text-3xl">🧠</div>
+            <div>
+              <p className="font-bold text-gray-800">Mundo Más Explorado</p>
+              <p className="text-xl font-black text-emerald-600">{estadisticas.mundoFavorito}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-xl shadow-sm">
+            <div className="text-3xl">⏱️</div>
+            <div>
+              <p className="font-bold text-gray-800">Velocidad Promedio</p>
+              <p className="text-xl font-black text-blue-600">
+                {Math.floor(estadisticas.promedioTiempo / 60)}:{(estadisticas.promedioTiempo % 60).toString().padStart(2, '0')}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Objetivos */}
+      <div className="bg-white rounded-3xl shadow-xl p-8 border-4 border-blue-400/50">
+        <h2 className="text-2xl font-black mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-orange-500 flex items-center gap-3">
+          <Target className="text-blue-500" size={28} />
+          Objetivos de la Semana
+        </h2>
+        <div className="space-y-5">
+          
+          {/* Objetivo 1 */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-bold text-gray-700">Completar 10 niveles</span>
+              <span className="text-sm font-black text-emerald-600">
+                {estadisticas.nivelesCompletados}/10
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div 
+                className="bg-emerald-500 h-full rounded-full" 
+                style={{ width: `${Math.min((estadisticas.nivelesCompletados / 10) * 100, 100)}%` }} 
+              />
+            </div>
+          </div>
+          
+          {/* Objetivo 2 */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-bold text-gray-700">Alcanzar racha de 14 días</span>
+              <span className="text-sm font-black text-orange-600">
+                {estadisticas.racha}/14
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div 
+                className="bg-orange-500 h-full rounded-full" 
+                style={{ width: `${Math.min((estadisticas.racha / 14) * 100, 100)}%` }} 
+              />
+            </div>
+          </div>
+
+          {/* Objetivo 3 */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-bold text-gray-700">Obtener 15 insignias</span>
+              <span className="text-sm font-black text-purple-600">
+                {estadisticas.insignias}/15
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div 
+                className="bg-purple-500 h-full rounded-full" 
+                style={{ width: `${Math.min((estadisticas.insignias / 15) * 100, 100)}%` }} 
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+);
+};
 export default Estadisticas;

@@ -88,7 +88,7 @@ router.post('/login', async (req, res) => {
         usuarioId: user.id, 
         username: user.username 
       },
-      process.env.JWT_SECRET || 'mi-clave-secreta-123',
+      process.env.JWT_SECRET || 'highschoolmusical',
       { expiresIn: '7d' }
     );
     
